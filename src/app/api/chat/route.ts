@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     }
 
     // Embed the user's query
-    const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
+    const embeddingModel = genAI.getGenerativeModel({ model: "embedding-001" });
     const queryEmb = await embeddingModel.embedContent(message);
     const queryEmbedding = queryEmb.embedding.values;
 
