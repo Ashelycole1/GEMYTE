@@ -63,7 +63,7 @@ export function useGemyteEngine() {
 
   // ── Generate level from text content ────────────────────────────────────
   const generateLevel = useCallback(async (text: string, orbId?: string) => {
-    if (!text || text.length < 10) return;
+    if (!text) return;
     setStatus('loading');
     setError(null);
 

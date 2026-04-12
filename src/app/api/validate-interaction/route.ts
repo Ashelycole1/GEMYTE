@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       // RAG failed — still evaluate with Gemini alone, no vector context
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `You are an educational AI evaluator for GEMYTE.
 A student was asked: "${question}"

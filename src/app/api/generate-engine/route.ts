@@ -37,13 +37,16 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { text, orbId } = body;
 
-    if (!text || text.trim().length < 10) {
+    if (!text || text.trim().length < 2) {
       return NextResponse.json({ error: 'Content too short to analyze' }, { status: 400 });
     }
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       systemInstruction: SYSTEM_INSTRUCTION,
+      generationConfig: {
+        responseMimeType: "application/json",
+      }
     });
 
     const prompt = `Analyze the following educational content and generate a Game Config JSON.
