@@ -4,40 +4,49 @@ import { auth } from '@clerk/nextjs/server';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-const SYSTEM_INSTRUCTION = `You are a 3D Level Designer for GEMYTE, an anti-gravity educational game engine.
+const SYSTEM_INSTRUCTION = `You are a Game Architect for GEMYTE, an AI-powered educational game engine.
 Your job is to analyze educational content and output ONLY a strict JSON object (no markdown, no explanation).
-The JSON must define the physics and atmosphere of a 3D learning world based on the concepts in the text.
+The JSON configures BOTH a 3D world AND a 2D Flappy Bird game based on the subject material.
 
 Rules:
 - gravity must be a float between -9.8 (heavy/intense topic) and 0.0 (light/abstract topic)
-- ambientColor must be a hex string that reflects the subject mood (e.g. deep blue for space, green for biology)
-- difficulty based on content complexity (Easy/Medium/Hard)
-- questTitle is a catchy one-line quest name derived from the topic
-- targetKnowledge is an array of 3-5 key concepts from the text
-- nodeCount is the number of knowledge orbs to generate (3-8)
-- floatIntensity controls how wildly the orbs float (0.5 to 3.0)
-- emissiveIntensity controls how brightly orbs glow (0.3 to 2.0)`;
+- ambientColor: hex color reflecting subject mood (e.g. deep blue for space, lush green for biology)
+- bgColor: hex background color for the 2D game sky (derived from topic atmosphere)
+- pipeColor: hex color for the 2D pipe obstacles
+- birdColor: hex color for the player bird (vibrant, distinct from bgColor)
+- difficulty: Easy / Medium / Hard (based on content complexity)
+- questTitle: catchy one-line title from the topic
+- topics: array of 3-5 objects, each with a 'title' (key concept) and 'question' (a short quiz question a student must answer to pass that checkpoint in the Flappy Bird game)
+- xpReward: XP per correct answer (25-100)`;
 
 const SCHEMA_EXAMPLE = `{
   "worldSettings": {
-    "gravity": -2.4,
-    "ambientColor": "#1a0a2e",
-    "accentColor": "#7c3aed",
+    "gravity": -3.2,
+    "ambientColor": "#0a1628",
+    "accentColor": "#3b82f6",
     "timeLimit": 120,
-    "nodeCount": 5,
-    "floatIntensity": 1.5,
-    "emissiveIntensity": 0.8
+    "nodeCount": 4,
+    "floatIntensity": 1.8,
+    "emissiveIntensity": 0.9
   },
   "nodeProperties": {
-    "mass": 1.2,
-    "friction": 0.3,
-    "restitution": 0.6,
-    "initialVelocity": [0.1, 0.2, -0.1]
+    "mass": 1.0,
+    "friction": 0.2,
+    "restitution": 0.7,
+    "initialVelocity": [0, 0, 0]
   },
   "gameplay": {
     "difficulty": "Medium",
-    "questTitle": "Journey Through the Cosmos",
-    "targetKnowledge": ["string theory", "black holes", "gravitational waves"],
+    "questTitle": "Escape Velocity: Astrophysics Run",
+    "bgColor": "#020c1b",
+    "pipeColor": "#1e3a5f",
+    "birdColor": "#38bdf8",
+    "topics": [
+      { "title": "Black Holes", "question": "What is the boundary of a black hole from which nothing can escape called?" },
+      { "title": "Gravitational Waves", "question": "What astronomical event first confirmed the existence of gravitational waves in 2015?" },
+      { "title": "Dark Matter", "question": "How do scientists detect dark matter if it does not emit or absorb light?" }
+    ],
+    "targetKnowledge": ["Black Holes", "Gravitational Waves", "Dark Matter"],
     "xpReward": 75,
     "hintText": "Focus on how mass warps spacetime."
   }

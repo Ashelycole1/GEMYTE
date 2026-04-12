@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Upload, Link as LinkIcon, Loader2, X, CheckCircle2, AlertCircle, Type } from 'lucide-react';
 
 interface UploadFormProps {
@@ -12,6 +13,7 @@ interface UploadFormProps {
 type TabType = 'file' | 'link' | 'prompt';
 
 export default function UploadForm({ onClose, mobile = false, engine }: UploadFormProps) {
+  const router = useRouter();
   const [tab, setTab] = useState<TabType>('file');
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState('');
@@ -47,13 +49,26 @@ export default function UploadForm({ onClose, mobile = false, engine }: UploadFo
         setPromptText('');
         
         if (engine && data.textContent) {
-          setMessage("Analyzing prompt to construct physics...");
-          engine.generateLevel(data.textContent).then(() => {
-             setMessage("Level Generated! Physics active.");
-             engine.startQuest();
+          setMessage('Analyzing content…');
+          engine.generateLevel(data.textContent).then((config: any) => {
+            if (config) {
+              // Persist the flappy game config to localStorage for /game page
+              const gameConfig = {
+                questTitle: config.gameplay?.questTitle || 'GEMYTE Challenge',
+                difficulty:  config.gameplay?.difficulty || 'Easy',
+                bgColor:     config.gameplay?.bgColor     || '#020817',
+                pipeColor:   config.gameplay?.pipeColor   || '#1e293b',
+                birdColor:   config.gameplay?.birdColor   || '#38bdf8',
+                topics:      config.gameplay?.topics      || [],
+                xpReward:    config.gameplay?.xpReward    || 50,
+              };
+              localStorage.setItem('gemyte_game_config', JSON.stringify(gameConfig));
+              setMessage('Level ready! Launching game…');
+              setTimeout(() => router.push('/game'), 800);
+            }
           }).catch((err: any) => {
-             console.error("Engine failure:", err);
-             setMessage("Analyzed. Physics sync failed.");
+            console.error('Engine failure:', err);
+            setMessage('Analyzed. Could not build level.');
           });
         }
       } else {
