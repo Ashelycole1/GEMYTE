@@ -1,66 +1,47 @@
 import { useFrame } from "@react-three/fiber";
-import { RigidBody, CapsuleCollider, useRapier } from "@react-three/rapier";
+import { RigidBody, BallCollider } from "@react-three/rapier";
 import { useKeyboardControls } from "@react-three/drei";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import * as THREE from "three";
 
-const SPEED = 5;
-const jumpForce = 4;
-const direction = new THREE.Vector3();
-const frontVector = new THREE.Vector3();
-const sideVector = new THREE.Vector3();
+const JUMP_FORCE = 6;
 
-// Define our keyboard map mapping names
-export enum Controls {
-  forward = 'forward',
-  back = 'back',
-  left = 'left',
-  right = 'right',
-  jump = 'jump',
-}
-
-export function Player() {
+export function Player({ isPaused }: { isPaused: boolean }) {
   const rigidBody = useRef<any>(null);
   const [, get] = useKeyboardControls();
-  const { rapier, world } = useRapier();
-  const [isHovering, setIsHovering] = useState(false);
+  
+  // Track last jump to prevent spamming
+  const lastJumpTime = useRef(0);
 
   useFrame((state) => {
-    if (!rigidBody.current) return;
-
-    const velocity = rigidBody.current.linvel();
-    const { forward, back, left, right, jump } = get();
-
-    // Movement
-    frontVector.set(0, 0, Number(back) - Number(forward));
-    sideVector.set(Number(left) - Number(right), 0, 0);
-    
-    // We compute the direction relative to the camera's rotation so WASD is always camera relative
-    direction
-      .subVectors(frontVector, sideVector)
-      .normalize()
-      .multiplyScalar(SPEED)
-      .applyEuler(state.camera.rotation);
-
-    // Apply movement while preserving vertical velocity (gravity/falling)
-    rigidBody.current.setLinvel({ x: direction.x, y: velocity.y, z: direction.z }, true);
-
-    // Jumping - basic raycast to check if grounded
-    const playerPos = rigidBody.current.translation();
-    
-    // We attach the camera to the player position!
-    // Offset camera slightly behind and above the player for third-person,
-    // or put it directly inside the player for first person.
-    // Let's do a pseudo first-person / closely attached camera.
-    state.camera.position.set(playerPos.x, playerPos.y + 0.5, playerPos.z + 5);
-    // state.camera.lookAt(playerPos.x, playerPos.y, playerPos.z); // Optional: look at character
-    
-    if (jump) {
-        // basic debounce to prevent flying - we can refine this later
-        if (Math.abs(velocity.y) < 0.1) {
-            rigidBody.current.setLinvel({ x: velocity.x, y: jumpForce, z: velocity.z }, true);
-        }
+    if (!rigidBody.current || isPaused) {
+      if (rigidBody.current && isPaused) {
+         // Pause the physics velocities while answering questions
+         rigidBody.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+         // Keep gravity from pulling
+         rigidBody.current.setGravityScale(0, true);
+      }
+      return;
     }
+    
+    // Resume gravity if unpaused
+    rigidBody.current.setGravityScale(1, true);
+
+    const { jump } = get();
+    const velocity = rigidBody.current.linvel();
+    const now = state.clock.getElapsedTime();
+
+    // Flap mechanic
+    if (jump && now - lastJumpTime.current > 0.3) {
+        lastJumpTime.current = now;
+        // Reset current vertical velocity and apply jump force upwards
+        rigidBody.current.setLinvel({ x: 0, y: JUMP_FORCE, z: 0 }, true);
+    }
+    
+    // Camera remains somewhat static but follows player slightly on Y to keep them framed
+    const playerPos = rigidBody.current.translation();
+    state.camera.position.lerp(new THREE.Vector3(0, Math.max(2, playerPos.y), 15), 0.1);
+    state.camera.lookAt(0, Math.max(2, playerPos.y), 0);
   });
 
   return (
@@ -70,13 +51,16 @@ export function Player() {
       mass={1}
       type="dynamic"
       position={[0, 5, 0]}
-      enabledRotations={[false, false, false]} // Don't let the player tip over
+      restitution={0.2}
+      // Lock X and Z axes, only allow Y movement
+      enabledTranslations={[false, true, false]}
+      enabledRotations={[false, false, false]} 
     >
-      <CapsuleCollider args={[0.5, 0.5]} />
-      {/* Visual representation of the player */}
-      <mesh castShadow position={[0, 0, 0]}>
-        <capsuleGeometry args={[0.5, 1, 4, 16]} />
-        <meshStandardMaterial color="hotpink" roughness={0.2} metalness={0.8} />
+      <BallCollider args={[0.6]} />
+      {/* Visual representation of the Flappy Avatar */}
+      <mesh castShadow>
+        <sphereGeometry args={[0.6, 32, 32]} />
+        <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.9} emissive="#0ea5e9" emissiveIntensity={0.5} />
       </mesh>
     </RigidBody>
   );
