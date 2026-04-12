@@ -4,74 +4,50 @@ import { useState, useCallback, useRef } from 'react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export interface WorldSettings {
-  gravity: number;          // -9.8 to 0
-  ambientColor: string;     // hex
-  accentColor: string;      // hex
-  timeLimit: number;        // seconds
-  nodeCount: number;        // 3-8
-  floatIntensity: number;   // 0.5 to 3
-  emissiveIntensity: number;// 0.3 to 2
+export interface WorldMeta {
+  title: string;
+  themeColor: string;
+  sky: string;
 }
 
-export interface NodeProperties {
-  mass: number;
-  friction: number;
-  restitution: number;
-  initialVelocity: [number, number, number];
+export interface ContentNode {
+  id: number;
+  position: [number, number, number];
+  fact: string;
+  interactionType: 'click' | 'scan';
 }
 
-export interface Gameplay {
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  questTitle: string;
-  targetKnowledge: string[];
-  xpReward: number;
-  hintText: string;
+export interface BossChallenge {
+  question: string;
+  options: string[];
+  correctAnswer: string;
 }
 
 export interface GameConfig {
-  worldSettings: WorldSettings;
-  nodeProperties: NodeProperties;
-  gameplay: Gameplay;
+  worldMeta: WorldMeta;
+  contentNodes: ContentNode[];
+  finalBossChallenge: BossChallenge;
   _meta?: { generatedAt: string; orbId: string | null; textLength: number };
 }
 
 export type EngineStatus = 'idle' | 'loading' | 'active' | 'error';
 
-// ── Defaults ─────────────────────────────────────────────────────────────────
+// ── Defaults ──────────
 
 const DEFAULT_CONFIG: GameConfig = {
-  worldSettings: {
-    gravity: 0,
-    ambientColor: '#020817',
-    accentColor: '#3b82f6',
-    timeLimit: 120,
-    nodeCount: 3,
-    floatIntensity: 1,
-    emissiveIntensity: 0.4,
+  worldMeta: {
+    title: 'Explore Knowledge',
+    themeColor: '#3b82f6',
+    sky: 'Night',
   },
-  nodeProperties: {
-    mass: 1,
-    friction: 0.1,
-    restitution: 0.8,
-    initialVelocity: [0, 0, 0],
-  },
-  gameplay: {
-    difficulty: 'Easy',
-    questTitle: 'Explore the Knowledge Space',
-    targetKnowledge: [],
-    xpReward: 50,
-    hintText: '',
+  contentNodes: [],
+  finalBossChallenge: {
+    question: '',
+    options: [],
+    correctAnswer: '',
   },
 };
 
-// ── Difficulty → physics profile ──────────────────────────────────────────────
-
-const DIFFICULTY_PROFILES = {
-  Easy:   { floatSpeed: 1.0, responseGlow: '#34d399', badge: '🟢' },
-  Medium: { floatSpeed: 1.8, responseGlow: '#fbbf24', badge: '🟡' },
-  Hard:   { floatSpeed: 2.8, responseGlow: '#f87171', badge: '🔴' },
-};
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
@@ -103,11 +79,14 @@ export function useGemyteEngine() {
 
       const config: GameConfig = data.gameConfig;
 
-      // Clamp values for safety
-      config.worldSettings.gravity = Math.max(-9.8, Math.min(0, config.worldSettings.gravity));
-      config.worldSettings.floatIntensity = Math.max(0.5, Math.min(3, config.worldSettings.floatIntensity));
-      config.worldSettings.emissiveIntensity = Math.max(0.3, Math.min(2, config.worldSettings.emissiveIntensity));
-      config.worldSettings.nodeCount = Math.max(3, Math.min(8, config.worldSettings.nodeCount));
+      // Sanitize nodes if needed
+      if (Array.isArray(config.contentNodes)) {
+         config.contentNodes = config.contentNodes.map((n, i) => ({
+            ...n,
+            id: n.id || i,
+            position: n.position || [Math.random() * 10 - 5, Math.random() * 3 + 1, Math.random() * -10]
+         }));
+      }
 
       setGameConfig(config);
       setStatus('active');
@@ -121,10 +100,9 @@ export function useGemyteEngine() {
 
   // ── Start timed quest session ────────────────────────────────────────────
   const startQuest = useCallback(() => {
-    const duration = gameConfig.worldSettings.timeLimit;
     setQuestActive(true);
     setScore(0);
-    setTimeLeft(duration);
+    setTimeLeft(120); // default 2 mins
 
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -137,7 +115,7 @@ export function useGemyteEngine() {
         return prev - 1;
       });
     }, 1000);
-  }, [gameConfig.worldSettings.timeLimit]);
+  }, []);
 
   const endQuest = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -145,9 +123,9 @@ export function useGemyteEngine() {
     setTimeLeft(null);
   }, []);
 
-  const markNodeComplete = useCallback((nodeTitle: string) => {
+  const markNodeComplete = useCallback((nodeId: string) => {
     setCompletedNodes(prev => {
-      if (!prev.includes(nodeTitle)) return [...prev, nodeTitle];
+      if (!prev.includes(nodeId)) return [...prev, nodeId];
       return prev;
     });
   }, []);
@@ -172,7 +150,7 @@ export function useGemyteEngine() {
       });
       const data = await res.json();
       if (data.evaluation) {
-        if (data.evaluation.correct) setScore(s => s + data.evaluation.score);
+        if (data.evaluation.correct) setScore(s => s + (data.evaluation.xpAwarded || 10));
         return data.evaluation;
       }
       return null;
@@ -191,18 +169,7 @@ export function useGemyteEngine() {
     setCompletedNodes([]);
   }, [endQuest]);
 
-  // ── Derived values for R3F/Rapier ────────────────────────────────────────
-  const physicsGravity: [number, number, number] = [
-    0,
-    gameConfig.worldSettings.gravity,
-    0,
-  ];
-
-  const difficultyProfile =
-    DIFFICULTY_PROFILES[gameConfig.gameplay.difficulty] ?? DIFFICULTY_PROFILES.Easy;
-
   return {
-    // State
     gameConfig,
     status,
     error,
@@ -210,16 +177,7 @@ export function useGemyteEngine() {
     score,
     timeLeft,
     completedNodes,
-
-    // Derived R3F values — wire directly into <Physics> and <Float>
-    physicsGravity,
-    ambientColor: gameConfig.worldSettings.ambientColor,
-    accentColor: gameConfig.worldSettings.accentColor,
-    floatIntensity: gameConfig.worldSettings.floatIntensity,
-    emissiveIntensity: gameConfig.worldSettings.emissiveIntensity,
-    difficultyProfile,
-
-    // Actions
+    themeColor: gameConfig.worldMeta.themeColor,
     generateLevel,
     startQuest,
     endQuest,

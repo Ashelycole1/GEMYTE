@@ -52,23 +52,17 @@ export default function UploadForm({ onClose, mobile = false, engine }: UploadFo
           setMessage('Analyzing content…');
           engine.generateLevel(data.textContent).then((config: any) => {
             if (config) {
-              // Persist the flappy game config to localStorage for /game page
-              const gameConfig = {
-                questTitle: config.gameplay?.questTitle || 'GEMYTE Challenge',
-                difficulty:  config.gameplay?.difficulty || 'Easy',
-                bgColor:     config.gameplay?.bgColor     || '#020817',
-                pipeColor:   config.gameplay?.pipeColor   || '#1e293b',
-                birdColor:   config.gameplay?.birdColor   || '#38bdf8',
-                topics:      config.gameplay?.topics      || [],
-                xpReward:    config.gameplay?.xpReward    || 50,
-              };
-              localStorage.setItem('gemyte_game_config', JSON.stringify(gameConfig));
-              setMessage('Level ready! Launching game…');
+              localStorage.setItem('gemyte_game_config', JSON.stringify(config));
+              setMessage('Level ready! Launching 3D World…');
               setTimeout(() => router.push('/game'), 800);
+            } else {
+              setMessage('Engine failed to build level. Please try again.');
+              setStatus('error');
             }
           }).catch((err: any) => {
             console.error('Engine failure:', err);
             setMessage('Analyzed. Could not build level.');
+            setStatus('error');
           });
         }
       } else {

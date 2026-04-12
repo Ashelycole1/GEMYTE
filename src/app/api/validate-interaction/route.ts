@@ -7,10 +7,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Auth is OPTIONAL — guests can play but don't earn persistent XP
+    const { userId } = await auth().catch(() => ({ userId: null })) as { userId: string | null };
 
     const { answer, question, orbTitle } = await req.json();
 
@@ -18,21 +16,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Answer and question are required' }, { status: 400 });
     }
 
-    // Fetch relevant context from vector DB for this topic
-    const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
-    const queryEmb = await embeddingModel.embedContent(question);
-    const queryEmbedding = queryEmb.embedding.values;
+    // Try to find matching context from vector DB (non-fatal)
+    let contextText = '';
+    try {
+      const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
+      const queryEmb = await embeddingModel.embedContent(question);
+      const queryEmbedding = queryEmb.embedding.values;
 
-    // @ts-ignore
-    const { data: docs } = await supabase.rpc('match_document_chunks', {
-      query_embedding: queryEmbedding,
-      match_threshold: 0.6,
-      match_count: 4,
-    });
+      // @ts-ignore
+      const { data: docs } = await supabase.rpc('match_document_chunks', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.6,
+        match_count: 4,
+      });
 
-    const contextText = docs && docs.length > 0
-      ? (docs as any[]).map((d: any) => d.content).join('\n---\n')
-      : '';
+      if (docs && docs.length > 0) {
+        contextText = (docs as any[]).map((d: any) => d.content).join('\n---\n');
+      }
+    } catch {
+      // RAG failed — still evaluate with Gemini alone, no vector context
+    }
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
@@ -67,19 +70,23 @@ Be lenient — partial credit for partially correct answers.`;
       return NextResponse.json({ error: 'AI returned malformed evaluation' }, { status: 500 });
     }
 
-    // Award XP if correct
-    if (evaluation.correct && evaluation.xpAwarded > 0) {
-      // @ts-ignore
-      await supabase.rpc('increment_xp', {
-        user_id_param: userId,
-        xp_amount: evaluation.xpAwarded,
-      });
+    // Award XP only for authenticated users
+    if (evaluation.correct && evaluation.xpAwarded > 0 && userId) {
+      try {
+        // @ts-ignore
+        await supabase.rpc('increment_xp', {
+          user_id_param: userId,
+          xp_amount: evaluation.xpAwarded,
+        });
 
-      await supabase.from('interactions').insert({
-        user_id: userId,
-        type: 'validated_answer',
-        xp_awarded: evaluation.xpAwarded,
-      } as any);
+        await supabase.from('interactions').insert({
+          user_id: userId,
+          type: 'validated_answer',
+          xp_awarded: evaluation.xpAwarded,
+        } as any);
+      } catch {
+        // XP write failed — non-fatal, still return evaluation
+      }
     }
 
     return NextResponse.json({ success: true, evaluation });
@@ -88,3 +95,4 @@ Be lenient — partial credit for partially correct answers.`;
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

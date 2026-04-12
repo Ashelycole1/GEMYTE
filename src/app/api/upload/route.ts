@@ -8,10 +8,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Optional auth - allow guests
+    const { userId } = await auth().catch(() => ({ userId: null })) as { userId: string | null };
 
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -89,20 +87,22 @@ export async function POST(req: Request) {
       user_id: userId,
     } as any);
 
-    // Ensure profile exists then award +50 XP
-    await fetch(`${new URL(req.url).origin}/api/profile`, {
-      method: 'POST',
-      headers: { cookie: req.headers.get('cookie') || '' },
-    });
+    if (userId) {
+      // Ensure profile exists then award +50 XP
+      await fetch(`${new URL(req.url).origin}/api/profile`, {
+        method: 'POST',
+        headers: { cookie: req.headers.get('cookie') || '' },
+      });
 
-    // @ts-ignore
-    await supabase.rpc('increment_xp', { user_id_param: userId, xp_amount: 50 });
+      // @ts-ignore
+      await supabase.rpc('increment_xp', { user_id_param: userId, xp_amount: 50 });
 
-    await supabase.from('interactions').insert({
-      user_id: userId,
-      type: 'upload',
-      xp_awarded: 50,
-    } as any);
+      await supabase.from('interactions').insert({
+        user_id: userId,
+        type: 'upload',
+        xp_awarded: 50,
+      } as any);
+    }
 
     return NextResponse.json({
       success: true,

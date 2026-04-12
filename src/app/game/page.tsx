@@ -2,9 +2,8 @@
 
 import dynamic from 'next/dynamic';
 
-// Client-only — canvas won't run on the server
-const FlappyGame = dynamic(() => import('@/components/FlappyGame'), { ssr: false });
+const WorldSpawner = dynamic(() => import('@/components/WorldSpawner'), { ssr: false });
 
 export default function GamePage() {
-  return <FlappyGame />;
+  return <WorldSpawner />;
 }
