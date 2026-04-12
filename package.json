@@ -1,0 +1,39 @@
+{
+  "name": "gemyte-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node --require ./node-polyfill.js ./node_modules/next/dist/bin/next dev",
+    "build": "node --require ./node-polyfill.js ./node_modules/next/dist/bin/next build",
+    "start": "node --require ./node-polyfill.js ./node_modules/next/dist/bin/next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^7.0.12",
+    "@google/generative-ai": "^0.24.1",
+    "@langchain/core": "^1.1.39",
+    "@langchain/google-genai": "^2.1.26",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "@react-three/rapier": "^2.2.0",
+    "@supabase/supabase-js": "^2.103.0",
+    "cheerio": "^1.2.0",
+    "lucide-react": "^1.8.0",
+    "next": "16.2.3",
+    "pdf-parse": "^2.4.5",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "three": "^0.183.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/oxide-win32-x64-msvc": "^4.2.2",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.3",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
