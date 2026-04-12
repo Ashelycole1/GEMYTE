@@ -4,14 +4,16 @@ import { UserButton, useUser, SignInButton } from "@clerk/nextjs";
 import PhysicsBridge from "@/components/PhysicsBridge";
 import UploadForm from "@/components/UploadForm";
 import Link from "next/link";
-import { Sparkles, Trophy, ArrowRight, Zap, Menu, X } from "lucide-react";
+import { Sparkles, Trophy, ArrowRight, Zap, Menu, X, Timer } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useGemyteEngine } from "@/hooks/useGemyteEngine";
 
 export default function Home() {
   const { isLoaded, isSignedIn, user } = useUser();
   const [xp, setXp] = useState<number | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const engine = useGemyteEngine();
 
   useEffect(() => {
     if (isSignedIn) {
@@ -27,7 +29,7 @@ export default function Home() {
   return (
     <main className="relative w-full h-screen overflow-hidden" style={{ background: '#030712' }}>
       {/* 3D Background */}
-      <PhysicsBridge />
+      <PhysicsBridge engine={engine} />
 
       {/* Gradient overlay for legibility */}
       <div className="absolute inset-0 z-[1]" style={{
@@ -170,21 +172,33 @@ export default function Home() {
           <>
             {/* Mobile: full-width bottom sheet */}
             <div className="pointer-events-auto sm:hidden absolute bottom-0 left-0 right-0 z-20 fade-in-up">
-              <UploadForm onClose={() => setShowUpload(false)} mobile />
+              <UploadForm onClose={() => setShowUpload(false)} mobile engine={engine} />
             </div>
             {/* Desktop: floating panel right */}
             <div className="pointer-events-auto hidden sm:block absolute right-6 lg:right-10 top-1/2 -translate-y-1/2 z-20 fade-in-up">
-              <UploadForm onClose={() => setShowUpload(false)} />
+              <UploadForm onClose={() => setShowUpload(false)} engine={engine} />
             </div>
           </>
         )}
 
         {/* ── STATUS FOOTER ── */}
         <footer className="pointer-events-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2 fade-in-up-delay-3">
-          <div className="badge-glow flex items-center gap-2 px-3 py-1.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
-            <span className="text-xs text-emerald-300 font-medium">Physics Engine Active</span>
+          <div className="flex flex-col gap-2">
+            <div className="badge-glow flex items-center gap-2 px-3 py-1.5 rounded-full">
+              <span className={`w-1.5 h-1.5 rounded-full ${engine.status === "active" ? "bg-emerald-400 pulse-dot" : "bg-sky-400 pulse-dot"}`} />
+              <span className={`text-xs font-medium ${engine.status === "active" ? "text-emerald-300" : "text-sky-300"}`}>
+                {engine.status === "active" ? "AI Engine Active" : "Physics Engine Active"}
+              </span>
+            </div>
+            
+            {engine.questActive && engine.timeLeft !== null && (
+              <div className="badge-glow flex items-center gap-2 px-3 py-1.5 rounded-full mt-1 border-yellow-500/30">
+                <Timer className="w-3 h-3 text-yellow-400" />
+                <span className="text-xs text-yellow-300 flex font-medium">Session: {Math.floor(engine.timeLeft / 60)}:{(engine.timeLeft % 60).toString().padStart(2, "0")}</span>
+              </div>
+            )}
           </div>
+          
           {isSignedIn && (
             <div className="glass px-3 py-1.5 rounded-full">
               <span className="text-xs text-slate-400">

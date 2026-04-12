@@ -104,6 +104,7 @@ export async function POST(req: Request) {
       success: true,
       message: `Processed ${processedChunks}/${chunks.length} chunks from ${sourceMeta}`,
       source: sourceMeta,
+      textContent: textContent
     });
   } catch (error: any) {
     console.error('Error in upload:', error);

@@ -6,9 +6,10 @@ import { Upload, Link as LinkIcon, Loader2, X, CheckCircle2, AlertCircle } from 
 interface UploadFormProps {
   onClose?: () => void;
   mobile?: boolean;
+  engine?: ReturnType<typeof import("@/hooks/useGemyteEngine").useGemyteEngine>;
 }
 
-export default function UploadForm({ onClose, mobile = false }: UploadFormProps) {
+export default function UploadForm({ onClose, mobile = false, engine }: UploadFormProps) {
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -35,6 +36,17 @@ export default function UploadForm({ onClose, mobile = false }: UploadFormProps)
         setMessage(data.message);
         setFile(null);
         setUrl('');
+        
+        if (engine && data.textContent) {
+          setMessage("Processing with AI to construct physics...");
+          engine.generateLevel(data.textContent).then(() => {
+             setMessage("Level Generated! Physics active.");
+             engine.startQuest();
+          }).catch((err: any) => {
+             console.error("Engine failure:", err);
+             setMessage("Orb created. Physics sync failed.");
+          });
+        }
       } else {
         setStatus('error');
         setMessage(data.error || 'Upload failed');

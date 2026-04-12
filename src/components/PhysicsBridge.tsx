@@ -6,12 +6,13 @@ import { Physics, RigidBody } from '@react-three/rapier';
 import { useState, Suspense, useEffect } from 'react';
 import { Send } from 'lucide-react';
 
-const KnowledgeOrb = ({ position, color, title }: { position: [number, number, number], color: string, title: string }) => {
+const KnowledgeOrb = ({ position, color, title, engine }: { position: [number, number, number], color: string, title: string, engine?: any }) => {
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
+  const [scoreFlash, setScoreFlash] = useState<string | null>(null);
 
   const askQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,17 +20,33 @@ const KnowledgeOrb = ({ position, color, title }: { position: [number, number, n
     setLoading(true);
     
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: query })
-      });
-      const data = await res.json();
-      setResponse(data.response);
+      if (engine && engine.questActive) {
+        // Quest Mode: Validate answer instead of just chatting
+        const result = await engine.validateAnswer(query, "What can you tell me about the specific topic?", title);
+        if (result) {
+           setResponse(result.feedback + (result.hint ? " Hint: " + result.hint : ""));
+           if (result.correct) {
+             setScoreFlash(`+${result.score} XP! Correct!`);
+             setTimeout(() => setScoreFlash(null), 3000);
+           }
+        } else {
+           setResponse("Engine failed to validate answer. Try again.");
+        }
+      } else {
+        // Normal Mode: Chat
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: query })
+        });
+        const data = await res.json();
+        setResponse(data.response);
+      }
     } catch (err) {
-      setResponse("Failed to query the AI.");
+      setResponse("Observation disturbed. Failed to query.");
     } finally {
       setLoading(false);
+      setQuery('');
     }
   };
 
@@ -45,7 +62,7 @@ const KnowledgeOrb = ({ position, color, title }: { position: [number, number, n
           <meshStandardMaterial 
             color={color} 
             emissive={color} 
-            emissiveIntensity={hovered ? 0.8 : 0.4} 
+            emissiveIntensity={hovered ? (engine?.emissiveIntensity || 0.8) + 0.5 : (engine?.emissiveIntensity || 0.4)} 
             roughness={0.2}
             metalness={0.8}
           />
@@ -53,14 +70,21 @@ const KnowledgeOrb = ({ position, color, title }: { position: [number, number, n
           {/* HTML Panel that opens when clicked */}
           {clicked && (
             <Html center distanceFactor={10} zIndexRange={[100, 0]}>
-              <div className="w-80 p-4 bg-slate-900/90 backdrop-blur-lg border border-blue-500/30 rounded-xl shadow-2xl text-white pointer-events-auto">
+              <div className="w-80 p-4 bg-slate-900/90 backdrop-blur-lg border border-blue-500/30 rounded-xl shadow-2xl text-white pointer-events-auto relative">
+                
+                {scoreFlash && (
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-emerald-500/90 text-white px-3 py-1 rounded-full font-bold whitespace-nowrap animate-bounce">
+                    {scoreFlash}
+                  </div>
+                )}
+                
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="font-bold text-lg text-blue-300">{title}</h4>
                   <button onClick={() => setClicked(false)} className="text-gray-400 hover:text-white">&times;</button>
                 </div>
                 
                 <div className="h-40 overflow-y-auto mb-3 text-sm text-gray-300 bg-black/30 p-3 rounded-lg no-scrollbar">
-                  {response ? response : "I am the AI representation of this module. Ask me anything!"}
+                  {response ? response : (engine?.questActive ? "Quest Active! Provide a summary of your knowledge." : "I am the AI representation of this module. Ask me anything!")}
                 </div>
 
                 <form onSubmit={askQuestion} className="flex gap-2">
@@ -84,7 +108,7 @@ const KnowledgeOrb = ({ position, color, title }: { position: [number, number, n
   );
 };
 
-export default function PhysicsBridge() {
+export default function PhysicsBridge({ engine }: { engine?: any }) {
   const [orbs, setOrbs] = useState<any[]>([]);
 
   useEffect(() => {
@@ -101,13 +125,13 @@ export default function PhysicsBridge() {
   return (
     <div className="w-full h-full absolute inset-0 z-0">
       <Canvas camera={{ position: [0, 0, 15], fov: 45 }}>
-        <color attach="background" args={['#020817']} />
+        <color attach="background" args={[engine?.ambientColor || '#020817']} />
         <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 10]} intensity={1} />
+        <directionalLight position={[10, 10, 10]} intensity={1} color={engine?.accentColor || '#ffffff'} />
         <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
         
         <Suspense fallback={null}>
-          <Physics gravity={[0, 0, 0]}>
+          <Physics gravity={engine ? engine.physicsGravity : [0, 0, 0]}>
             {/* Boundaries so orbs don't float away infinitely */}
             <RigidBody type="fixed" position={[0, -10, 0]}>
               <mesh><boxGeometry args={[20, 1, 20]} /><meshBasicMaterial visible={false} /></mesh>
@@ -134,14 +158,15 @@ export default function PhysicsBridge() {
                   ]} 
                   color={orb.color} 
                   title={orb.title} 
+                  engine={engine}
                 />
               ))
             ) : (
               // Default Orbs for unauthenticated or first-time
               <>
-                <KnowledgeOrb position={[-2, 0, 0]} color="#3b82f6" title="Cambridge Biology" />
-                <KnowledgeOrb position={[2, 2, 0]} color="#8b5cf6" title="IB Physics" />
-                <KnowledgeOrb position={[0, -2, -2]} color="#10b981" title="History of Uganda" />
+                <KnowledgeOrb position={[-2, 0, 0]} color="#3b82f6" title="Cambridge Biology" engine={engine} />
+                <KnowledgeOrb position={[2, 2, 0]} color="#8b5cf6" title="IB Physics" engine={engine} />
+                <KnowledgeOrb position={[0, -2, -2]} color="#10b981" title="History of Uganda" engine={engine} />
               </>
             )}
           </Physics>
