@@ -71,7 +71,7 @@ export async function POST(req: Request) {
       user_id: userId,
       type: 'chat',
       xp_awarded: 10
-    });
+    } as any);
 
     return NextResponse.json({ response: responseText, contextFound: !!contextText });
   } catch (error: any) {

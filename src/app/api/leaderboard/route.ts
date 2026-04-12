@@ -15,7 +15,7 @@ export async function GET() {
 
     if (error) throw error;
 
-    const ranked = (data || []).map((user, index) => ({
+    const ranked = ((data as any[]) || []).map((user: any, index: number) => ({
       ...user,
       rank: index + 1,
       isCurrentUser: user.user_id === userId,
@@ -24,11 +24,13 @@ export async function GET() {
     // Find current user's rank if not in top 20
     let currentUserEntry = null;
     if (userId && !ranked.find((u) => u.isCurrentUser)) {
-      const { data: myProfile } = await supabase
+      const { data: myProfileRaw } = await supabase
         .from('user_profiles')
         .select('user_id, display_name, avatar_url, xp')
         .eq('user_id', userId)
         .single();
+        
+      const myProfile = myProfileRaw as any;
 
       if (myProfile) {
         // Count how many users have more XP

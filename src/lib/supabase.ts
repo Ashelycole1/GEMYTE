@@ -13,7 +13,14 @@ export type Database = {
           metadata: Record<string, unknown> | null;
           user_id: string | null;
         };
-        Insert: Omit<Database['public']['Tables']['document_chunks']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['document_chunks']['Row']>;
+        Insert: {
+          content: string;
+          embedding?: number[] | null;
+          source?: string | null;
+          metadata?: Record<string, unknown> | null;
+          user_id?: string | null;
+        };
       };
       knowledge_orbs: {
         Row: {
@@ -24,7 +31,13 @@ export type Database = {
           color: string;
           user_id: string;
         };
-        Insert: Omit<Database['public']['Tables']['knowledge_orbs']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['knowledge_orbs']['Row']>;
+        Insert: {
+          title: string;
+          source?: string | null;
+          color: string;
+          user_id: string;
+        };
       };
       user_profiles: {
         Row: {
@@ -35,8 +48,13 @@ export type Database = {
           avatar_url: string | null;
           xp: number;
         };
-        Insert: Omit<Database['public']['Tables']['user_profiles']['Row'], 'id' | 'created_at'>;
-        Update: Partial<Database['public']['Tables']['user_profiles']['Insert']>;
+        Insert: {
+          user_id: string;
+          display_name?: string | null;
+          avatar_url?: string | null;
+          xp: number;
+        };
+        Update: Partial<Database['public']['Tables']['user_profiles']['Row']>;
       };
       interactions: {
         Row: {
@@ -46,7 +64,12 @@ export type Database = {
           type: string | null;
           xp_awarded: number;
         };
-        Insert: Omit<Database['public']['Tables']['interactions']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['interactions']['Row']>;
+        Insert: {
+          user_id: string;
+          type?: string | null;
+          xp_awarded: number;
+        };
       };
     };
     Functions: {
@@ -77,4 +100,4 @@ export type Database = {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
