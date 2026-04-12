@@ -8,7 +8,13 @@ import { useMemo, useEffect, useState } from 'react';
 
 const COLORS = ['#fbbf24', '#38bdf8', '#a78bfa', '#34d399', '#f472b6', '#fb923c'];
 
-const ConstellationStar = ({ data, position }: { data: any; position: [number, number, number] }) => {
+const ConstellationStar = ({
+  data,
+  position,
+}: {
+  data: any;
+  position: [number, number, number];
+}) => {
   const size = Math.max(0.3, Math.min(data.xp / 800, 2));
   return (
     <group position={position}>
@@ -63,12 +69,13 @@ export default function Leaderboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const positions = useMemo(() =>
-    users.map(() => [
-      (Math.random() - 0.5) * 18,
-      (Math.random() - 0.5) * 12,
-      (Math.random() - 0.5) * 10,
-    ] as [number, number, number]),
+  const positions = useMemo(
+    () =>
+      users.map(() => [
+        (Math.random() - 0.5) * 18,
+        (Math.random() - 0.5) * 12,
+        (Math.random() - 0.5) * 10,
+      ] as [number, number, number]),
     [users]
   );
 
@@ -76,7 +83,7 @@ export default function Leaderboard() {
 
   return (
     <main className="relative w-full h-screen overflow-hidden" style={{ background: '#030712' }}>
-      {/* 3D Background */}
+      {/* 3D Constellation */}
       <div className="absolute inset-0 z-0">
         <Canvas camera={{ position: [0, 0, 22], fov: 50 }}>
           <color attach="background" args={['#030712']} />
@@ -90,55 +97,114 @@ export default function Leaderboard() {
         </Canvas>
       </div>
 
-      {/* Overlay */}
-      <div className="absolute inset-0 z-10 flex flex-col p-6 pointer-events-none"
-        style={{ background: 'linear-gradient(to bottom, rgba(3,7,18,0.75) 0%, transparent 35%, rgba(3,7,18,0.5) 100%)' }}>
+      {/* Overlay gradient */}
+      <div
+        className="absolute inset-0 z-[1] pointer-events-none"
+        style={{
+          background:
+            'linear-gradient(to bottom, rgba(3,7,18,0.85) 0%, transparent 30%, rgba(3,7,18,0.7) 100%)',
+        }}
+      />
 
-        {/* Nav */}
-        <header className="flex justify-between items-center w-full pointer-events-auto fade-in-up">
-          <Link href="/"
-            className="glass glass-hover flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white px-4 py-2 rounded-full transition-all">
+      {/* UI layer */}
+      <div className="absolute inset-0 z-10 flex flex-col pointer-events-none">
+
+        {/* ── NAV ── */}
+        <header className="pointer-events-auto px-4 sm:px-6 py-4 flex items-center justify-between fade-in-up">
+          <Link
+            href="/"
+            className="glass glass-hover flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full">
             <ArrowLeft className="w-4 h-4" />
-            Back to Bridge
+            <span className="hidden xs:inline">Back</span>
+            <span className="hidden sm:inline"> to Bridge</span>
           </Link>
 
-          <div className="glass flex items-center gap-3 px-5 py-2.5 rounded-2xl"
+          <div
+            className="glass flex items-center gap-2 sm:gap-3 px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl"
             style={{ boxShadow: '0 0 20px rgba(251,191,36,0.15)' }}>
-            <Trophy className="w-5 h-5 text-yellow-400" />
-            <h1 className="text-base font-bold text-white tracking-widest uppercase">The Constellation</h1>
+            <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 flex-shrink-0" />
+            <h1 className="text-sm sm:text-base font-bold text-white tracking-widest uppercase">
+              The Constellation
+            </h1>
           </div>
         </header>
 
-        {/* Top 3 leaderboard strip at bottom */}
-        <div className="mt-auto pointer-events-auto">
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* ── TOP 3 STRIP ── */}
+        <div className="pointer-events-auto px-3 sm:px-6 pb-4 sm:pb-6">
           {loading ? (
-            <div className="flex justify-center pb-6">
-              <div className="glass px-6 py-3 rounded-2xl text-slate-400 text-sm animate-pulse">Loading Constellation…</div>
+            <div className="flex justify-center">
+              <div className="glass px-6 py-3 rounded-2xl text-slate-400 text-sm animate-pulse">
+                Loading Constellation…
+              </div>
             </div>
           ) : top3.length > 0 ? (
-            <div className="fade-in-up flex justify-center gap-3 pb-4">
-              {top3.map((u, i) => (
-                <div key={i}
-                  className="glass glass-hover flex items-center gap-3 px-5 py-3 rounded-2xl cursor-default"
-                  style={{ borderColor: i === 0 ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.06)' }}>
-                  {i === 0 && <Crown className="w-4 h-4 text-yellow-400 shrink-0" />}
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ background: u.color }} />
-                  <div>
-                    <p className="text-sm font-semibold text-white leading-tight">{u.name}</p>
-                    <p className="text-xs text-slate-400 flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-sky-400" />
-                      {u.xp.toLocaleString()} XP
-                    </p>
+            <div className="fade-in-up">
+              {/* Mobile: scrollable row */}
+              <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-1 sm:justify-center scrollbar-hide">
+                {top3.map((u, i) => (
+                  <div
+                    key={i}
+                    className="glass glass-hover flex-shrink-0 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 rounded-2xl cursor-default"
+                    style={{
+                      borderColor:
+                        i === 0 ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.06)',
+                      minWidth: '140px',
+                    }}>
+                    {i === 0 && (
+                      <Crown className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                    )}
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ background: u.color }}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white leading-tight truncate">
+                        {u.name}
+                      </p>
+                      <p className="text-xs text-slate-400 flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-sky-400 flex-shrink-0" />
+                        {u.xp.toLocaleString()} XP
+                      </p>
+                    </div>
+                    <span className="text-xs font-bold text-slate-500 ml-auto pl-1 flex-shrink-0">
+                      #{u.rank}
+                    </span>
                   </div>
-                  <span className="text-xs font-bold text-slate-500 ml-1">#{u.rank}</span>
+                ))}
+              </div>
+
+              {/* Full leaderboard table (visible on md+) */}
+              {users.length > 3 && (
+                <div className="hidden md:block mt-3 glass rounded-2xl overflow-hidden max-w-sm mx-auto">
+                  {users.slice(3, 8).map((u, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 px-4 py-2.5 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                      <span className="text-xs text-slate-500 w-5 text-right flex-shrink-0">
+                        #{u.rank}
+                      </span>
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: u.color }} />
+                      <span className="text-sm text-white font-medium truncate flex-1">{u.name}</span>
+                      <span className="text-xs text-slate-400 flex-shrink-0">
+                        {u.xp.toLocaleString()} XP
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           ) : (
-            <div className="flex justify-center pb-6">
+            <div className="flex justify-center">
               <div className="glass px-6 py-4 rounded-2xl text-center max-w-xs">
-                <p className="text-white font-semibold text-sm mb-1">The Constellation is empty</p>
-                <p className="text-slate-400 text-xs">Sign in, upload a syllabus, and be the first star.</p>
+                <p className="text-white font-semibold text-sm mb-1">
+                  The Constellation is empty
+                </p>
+                <p className="text-slate-400 text-xs">
+                  Sign in, upload a syllabus, and be the first star.
+                </p>
               </div>
             </div>
           )}
