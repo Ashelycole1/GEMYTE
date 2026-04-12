@@ -26,11 +26,12 @@ export async function POST(req: Request) {
     // Search Supabase pgvector for similar chunks
     // * Requires a Postgres function `match_document_chunks` installed *
     // @ts-ignore
-    const { data: documents, error } = await supabase.rpc('match_document_chunks', {
+    const { data, error } = await supabase.rpc('match_document_chunks', {
       query_embedding: queryEmbedding,
       match_threshold: 0.7, // Adjust as needed
       match_count: 5,
     });
+    const documents = data as any[] | null;
 
     if (error) {
       console.error('Vector search error:', error);
