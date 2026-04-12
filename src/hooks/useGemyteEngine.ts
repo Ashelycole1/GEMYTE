@@ -81,6 +81,7 @@ export function useGemyteEngine() {
   const [error, setError] = useState<string | null>(null);
   const [questActive, setQuestActive] = useState(false);
   const [score, setScore] = useState(0);
+  const [completedNodes, setCompletedNodes] = useState<string[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
@@ -144,6 +145,13 @@ export function useGemyteEngine() {
     setTimeLeft(null);
   }, []);
 
+  const markNodeComplete = useCallback((nodeTitle: string) => {
+    setCompletedNodes(prev => {
+      if (!prev.includes(nodeTitle)) return [...prev, nodeTitle];
+      return prev;
+    });
+  }, []);
+
   // ── Validate student answer ──────────────────────────────────────────────
   const validateAnswer = useCallback(async (
     answer: string,
@@ -180,6 +188,7 @@ export function useGemyteEngine() {
     setStatus('idle');
     setError(null);
     setScore(0);
+    setCompletedNodes([]);
   }, [endQuest]);
 
   // ── Derived values for R3F/Rapier ────────────────────────────────────────
@@ -200,6 +209,7 @@ export function useGemyteEngine() {
     questActive,
     score,
     timeLeft,
+    completedNodes,
 
     // Derived R3F values — wire directly into <Physics> and <Float>
     physicsGravity,
@@ -214,6 +224,7 @@ export function useGemyteEngine() {
     startQuest,
     endQuest,
     validateAnswer,
+    markNodeComplete,
     resetEngine,
   };
 }

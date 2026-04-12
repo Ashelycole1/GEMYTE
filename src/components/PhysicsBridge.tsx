@@ -6,7 +6,7 @@ import { Physics, RigidBody } from '@react-three/rapier';
 import { useState, Suspense, useEffect } from 'react';
 import { Send } from 'lucide-react';
 
-const KnowledgeOrb = ({ position, color, title, engine }: { position: [number, number, number], color: string, title: string, engine?: any }) => {
+const KnowledgeOrb = ({ position, color, title, engine, isCompleted }: { position: [number, number, number], color: string, title: string, engine?: any, isCompleted?: boolean }) => {
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
   const [query, setQuery] = useState('');
@@ -16,7 +16,7 @@ const KnowledgeOrb = ({ position, color, title, engine }: { position: [number, n
 
   const askQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query) return;
+    if (!query || isCompleted) return;
     setLoading(true);
     
     try {
@@ -28,6 +28,7 @@ const KnowledgeOrb = ({ position, color, title, engine }: { position: [number, n
            if (result.correct) {
              setScoreFlash(`+${result.score} XP! Correct!`);
              setTimeout(() => setScoreFlash(null), 3000);
+             if (engine.markNodeComplete) engine.markNodeComplete(title);
            }
         } else {
            setResponse("Engine failed to validate answer. Try again.");
@@ -54,15 +55,15 @@ const KnowledgeOrb = ({ position, color, title, engine }: { position: [number, n
     <RigidBody colliders="ball" restitution={0.8} friction={0.1} linearDamping={0.5} position={position}>
       <Float speed={2} rotationIntensity={1} floatIntensity={1}>
         <mesh 
-          onPointerOver={() => setHovered(true)} 
+          onPointerOver={() => { if (!isCompleted) setHovered(true); }} 
           onPointerOut={() => setHovered(false)}
-          onClick={(e) => { e.stopPropagation(); setClicked(!clicked); }}
+          onClick={(e) => { e.stopPropagation(); if (!isCompleted) setClicked(!clicked); }}
         >
           <sphereGeometry args={[1, 32, 32]} />
           <meshStandardMaterial 
-            color={color} 
-            emissive={color} 
-            emissiveIntensity={hovered ? (engine?.emissiveIntensity || 0.8) + 0.5 : (engine?.emissiveIntensity || 0.4)} 
+            color={isCompleted ? '#10b981' : color} 
+            emissive={isCompleted ? '#10b981' : color} 
+            emissiveIntensity={isCompleted ? 0.2 : hovered ? (engine?.emissiveIntensity || 0.8) + 0.5 : (engine?.emissiveIntensity || 0.4)} 
             roughness={0.2}
             metalness={0.8}
           />
@@ -146,8 +147,29 @@ export default function PhysicsBridge({ engine }: { engine?: any }) {
               <mesh><boxGeometry args={[1, 20, 20]} /><meshBasicMaterial visible={false} /></mesh>
             </RigidBody>
 
-            {/* Generated Orbs Based on Syllabi */}
-            {orbs.length > 0 ? (
+            {/* Game Engine Active: Spawn Quest Orbs */}
+            {engine?.status === 'active' ? (
+              engine.gameConfig.gameplay.targetKnowledge.map((topic: string, i: number) => {
+                const colors = ['#38bdf8', '#fbbf24', '#f472b6', '#a78bfa', '#34d399'];
+                const isCompleted = engine.completedNodes?.includes(topic);
+                
+                return (
+                  <KnowledgeOrb 
+                    key={`quest-${i}`} 
+                    position={[
+                      (Math.random() - 0.5) * 12, 
+                      (Math.random() - 0.5) * 8 + 2, 
+                      (Math.random() - 0.5) * 12
+                    ]} 
+                    color={colors[i % colors.length]} 
+                    title={topic} 
+                    engine={engine}
+                    isCompleted={isCompleted}
+                  />
+                );
+              })
+            ) : orbs.length > 0 ? (
+              /* Database Orbs */
               orbs.map((orb, i) => (
                 <KnowledgeOrb 
                   key={orb.id} 

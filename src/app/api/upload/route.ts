@@ -16,6 +16,7 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const url = formData.get('url') as string | null;
+    const prompt = formData.get('prompt') as string | null;
 
     let textContent = '';
     let sourceMeta = '';
@@ -40,8 +41,11 @@ export async function POST(req: Request) {
       const $ = cheerio.load(html);
       textContent = $('body').text().replace(/\s+/g, ' ').trim();
       sourceMeta = url;
+    } else if (prompt) {
+      textContent = prompt.trim();
+      sourceMeta = "Prompt Injection";
     } else {
-      return NextResponse.json({ error: 'Missing file or url parameter' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing file, url, or prompt parameter' }, { status: 400 });
     }
 
     // Split into 1,000-character chunks
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
         content: chunk,
         embedding: embedding,
         source: sourceMeta,
-        metadata: { type: file ? 'pdf' : 'url' },
+        metadata: { type: file ? 'pdf' : url ? 'url' : 'prompt' },
         user_id: userId,
       } as any);
 
