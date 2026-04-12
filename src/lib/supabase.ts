@@ -49,6 +49,28 @@ export type Database = {
         Insert: Omit<Database['public']['Tables']['interactions']['Row'], 'id' | 'created_at'>;
       };
     };
+    Functions: {
+      match_document_chunks: {
+        Args: {
+          query_embedding: number[];
+          match_threshold: number;
+          match_count: number;
+        };
+        Returns: {
+          id: number;
+          content: string;
+          source: string;
+          similarity: number;
+        }[];
+      };
+      increment_xp: {
+        Args: {
+          user_id_param: string;
+          xp_amount: number;
+        };
+        Returns: void;
+      };
+    };
   };
 };
 

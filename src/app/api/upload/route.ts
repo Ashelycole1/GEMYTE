@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import pdfParse from 'pdf-parse';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import * as pdfParseModule from 'pdf-parse';
+const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 import * as cheerio from 'cheerio';
 import { auth } from '@clerk/nextjs/server';
 
@@ -90,6 +91,7 @@ export async function POST(req: Request) {
     await fetch(`${new URL(req.url).origin}/api/profile`, { method: 'POST', headers: { cookie: req.headers.get('cookie') || '' } });
     
     // Update XP
+    // @ts-ignore
     await supabase.rpc('increment_xp', {
       user_id_param: userId,
       xp_amount: 50
