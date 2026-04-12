@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     }
 
     // Fetch relevant context from vector DB for this topic
-    const embeddingModel = genAI.getGenerativeModel({ model: 'embedding-001' });
+    const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
     const queryEmb = await embeddingModel.embedContent(question);
     const queryEmbedding = queryEmb.embedding.values;
 

@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     const chunks = await splitter.splitText(textContent);
 
     // Embed and insert each chunk
-    const embeddingModel = genAI.getGenerativeModel({ model: 'embedding-001' });
+    const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
     let processedChunks = 0;
 
     for (const chunk of chunks) {
