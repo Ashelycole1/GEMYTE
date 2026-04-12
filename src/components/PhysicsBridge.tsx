@@ -1,10 +1,11 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Html, Stars, Float } from '@react-three/drei';
+import { KeyboardControls, OrbitControls, Html, Stars, Float } from '@react-three/drei';
 import { Physics, RigidBody } from '@react-three/rapier';
 import { useState, Suspense, useEffect } from 'react';
 import { Send } from 'lucide-react';
+import { Player } from './Player';
 
 const KnowledgeOrb = ({ position, color, title, engine, isCompleted }: { position: [number, number, number], color: string, title: string, engine?: any, isCompleted?: boolean }) => {
   const [hovered, setHovered] = useState(false);
@@ -125,77 +126,89 @@ export default function PhysicsBridge({ engine }: { engine?: any }) {
 
   return (
     <div className="w-full h-full absolute inset-0 z-0">
-      <Canvas camera={{ position: [0, 0, 15], fov: 45 }}>
-        <color attach="background" args={[engine?.ambientColor || '#020817']} />
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 10]} intensity={1} color={engine?.accentColor || '#ffffff'} />
-        <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-        
-        <Suspense fallback={null}>
-          <Physics gravity={engine ? engine.physicsGravity : [0, 0, 0]}>
-            {/* Boundaries so orbs don't float away infinitely */}
-            <RigidBody type="fixed" position={[0, -10, 0]}>
-              <mesh><boxGeometry args={[20, 1, 20]} /><meshBasicMaterial visible={false} /></mesh>
-            </RigidBody>
-            <RigidBody type="fixed" position={[0, 10, 0]}>
-              <mesh><boxGeometry args={[20, 1, 20]} /><meshBasicMaterial visible={false} /></mesh>
-            </RigidBody>
-            <RigidBody type="fixed" position={[-10, 0, 0]}>
-              <mesh><boxGeometry args={[1, 20, 20]} /><meshBasicMaterial visible={false} /></mesh>
-            </RigidBody>
-            <RigidBody type="fixed" position={[10, 0, 0]}>
-              <mesh><boxGeometry args={[1, 20, 20]} /><meshBasicMaterial visible={false} /></mesh>
-            </RigidBody>
+      <KeyboardControls
+        map={[
+          { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
+          { name: 'back', keys: ['ArrowDown', 'KeyS'] },
+          { name: 'left', keys: ['ArrowLeft', 'KeyA'] },
+          { name: 'right', keys: ['ArrowRight', 'KeyD'] },
+          { name: 'jump', keys: ['Space'] },
+        ]}
+      >
+        <Canvas camera={{ position: [0, 5, 10], fov: 60 }}>
+          <color attach="background" args={[engine?.ambientColor || '#020817']} />
+          <ambientLight intensity={0.5} />
+          <directionalLight position={[10, 20, 10]} intensity={1} castShadow color={engine?.accentColor || '#ffffff'} />
+          <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+          
+          {/* Add a subtle fog to blend the grid into the horizon */}
+          <fog attach="fog" args={[engine?.ambientColor || '#020817', 10, 50]} />
 
-            {/* Game Engine Active: Spawn Quest Orbs */}
-            {engine?.status === 'active' ? (
-              engine.gameConfig.gameplay.targetKnowledge.map((topic: string, i: number) => {
-                const colors = ['#38bdf8', '#fbbf24', '#f472b6', '#a78bfa', '#34d399'];
-                const isCompleted = engine.completedNodes?.includes(topic);
-                
-                return (
+          <Suspense fallback={null}>
+            <Physics gravity={engine?.physicsGravity || [0, -9.81, 0]}>
+              {/* The Player Avatar */}
+              <Player />
+
+              {/* The Ground Plane Map */}
+              <RigidBody type="fixed" position={[0, -0.5, 0]}>
+                <mesh receiveShadow>
+                  <boxGeometry args={[100, 1, 100]} />
+                  <meshStandardMaterial color="#0f172a" roughness={1} />
+                </mesh>
+                {/* Decorative Grid on the floor */}
+                <gridHelper args={[100, 100, '#1e293b', '#0f172a']} position={[0, 0.51, 0]} />
+              </RigidBody>
+
+              {/* Game Engine Active: Spawn Quest Monuments (Orbs) */}
+              {engine?.status === 'active' ? (
+                engine.gameConfig.gameplay.targetKnowledge.map((topic: string, i: number) => {
+                  const colors = ['#38bdf8', '#fbbf24', '#f472b6', '#a78bfa', '#34d399'];
+                  const isCompleted = engine.completedNodes?.includes(topic);
+                  
+                  return (
+                    // Spread them out in a path or semi-circle on the ground
+                    <KnowledgeOrb 
+                      key={`quest-${i}`} 
+                      position={[
+                        (i - 2) * 8, 
+                        3, 
+                        -10 - (i * 2)
+                      ]} 
+                      color={colors[i % colors.length]} 
+                      title={topic} 
+                      engine={engine}
+                      isCompleted={isCompleted}
+                    />
+                  );
+                })
+              ) : orbs.length > 0 ? (
+                /* Database Orbs */
+                orbs.map((orb, i) => (
                   <KnowledgeOrb 
-                    key={`quest-${i}`} 
+                    key={orb.id} 
                     position={[
-                      (Math.random() - 0.5) * 12, 
-                      (Math.random() - 0.5) * 8 + 2, 
-                      (Math.random() - 0.5) * 12
+                      (Math.random() - 0.5) * 20, 
+                      3, 
+                      (Math.random() - 0.5) * 20 - 5
                     ]} 
-                    color={colors[i % colors.length]} 
-                    title={topic} 
+                    color={orb.color} 
+                    title={orb.title} 
                     engine={engine}
-                    isCompleted={isCompleted}
                   />
-                );
-              })
-            ) : orbs.length > 0 ? (
-              /* Database Orbs */
-              orbs.map((orb, i) => (
-                <KnowledgeOrb 
-                  key={orb.id} 
-                  position={[
-                    (Math.random() - 0.5) * 8, 
-                    (Math.random() - 0.5) * 8, 
-                    (Math.random() - 0.5) * 8
-                  ]} 
-                  color={orb.color} 
-                  title={orb.title} 
-                  engine={engine}
-                />
-              ))
-            ) : (
-              // Default Orbs for unauthenticated or first-time
-              <>
-                <KnowledgeOrb position={[-2, 0, 0]} color="#3b82f6" title="Cambridge Biology" engine={engine} />
-                <KnowledgeOrb position={[2, 2, 0]} color="#8b5cf6" title="IB Physics" engine={engine} />
-                <KnowledgeOrb position={[0, -2, -2]} color="#10b981" title="History of Uganda" engine={engine} />
-              </>
-            )}
-          </Physics>
-        </Suspense>
-        
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
-      </Canvas>
+                ))
+              ) : (
+                // Default Orbs for unauthenticated or first-time
+                <>
+                  <KnowledgeOrb position={[-5, 2, -5]} color="#3b82f6" title="Cambridge Biology" engine={engine} />
+                  <KnowledgeOrb position={[0, 2, -8]} color="#8b5cf6" title="IB Physics" engine={engine} />
+                  <KnowledgeOrb position={[5, 2, -5]} color="#10b981" title="History of Uganda" engine={engine} />
+                </>
+              )}
+            </Physics>
+          </Suspense>
+          
+        </Canvas>
+      </KeyboardControls>
     </div>
   );
 }
