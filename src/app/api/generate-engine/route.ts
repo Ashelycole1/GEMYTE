@@ -29,6 +29,8 @@ const SCHEMA_EXAMPLE = `{
   }
 }`;
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
     // Optional auth
