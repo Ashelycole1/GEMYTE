@@ -79,13 +79,22 @@ export function useGemyteEngine() {
 
       const config: GameConfig = data.gameConfig;
 
-      // Sanitize nodes if needed
+      // Sanitize and scatter nodes across the open world
       if (Array.isArray(config.contentNodes)) {
-         config.contentNodes = config.contentNodes.map((n, i) => ({
-            ...n,
-            id: n.id || i,
-            position: n.position || [Math.random() * 10 - 5, Math.random() * 3 + 1, Math.random() * -10]
-         }));
+         config.contentNodes = config.contentNodes.map((n, i) => {
+            const rawPos = n.position || [Math.random() * 10 - 5, Math.random() * 3 + 1, Math.random() * -10];
+            // Multiply X and Z by 15, keep Y relatively stable to the ground
+            const scaledPos: [number, number, number] = [
+              rawPos[0] * 15,
+              Math.max(rawPos[1], 1), // Don't let it sink below ground
+              rawPos[2] * 15
+            ];
+            return {
+              ...n,
+              id: n.id || i,
+              position: scaledPos
+            };
+         });
       }
 
       setGameConfig(config);

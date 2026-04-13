@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Stars, Html, Sky, Environment } from '@react-three/drei';
+import { Stars, Html, Sky, Environment, Grid } from '@react-three/drei';
 import { Physics, RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
 import { useRouter } from 'next/navigation';
 import { GameConfig, ContentNode } from '@/hooks/useGemyteEngine';
@@ -124,7 +124,7 @@ export default function WorldSpawner() {
   const progress = cNodes.length === 0 ? 0 : (completedNodes.length / cNodes.length) * 100;
 
   return (
-    <div className="w-full min-h-screen relative overflow-hidden select-none" style={{ backgroundColor: '#87CEEB' }}>
+    <div className="w-screen h-screen absolute inset-0 overflow-hidden select-none" style={{ backgroundColor: '#87CEEB' }}>
       
       {/* ── UI Layer ── */}
       <div className="absolute top-0 left-0 right-0 p-4 z-20 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center pointer-events-none">
@@ -232,18 +232,46 @@ export default function WorldSpawner() {
         <ambientLight intensity={0.6} />
         <directionalLight castShadow position={[10, 20, 10]} intensity={1.5} color={config.worldMeta?.themeColor || '#ffffff'} />
         
+        <Grid position={[0, 0.05, 0]} args={[1000, 1000]} cellColor="#22c55e" sectionColor="#15803d" sectionSize={10} cellSize={2} fadeDistance={200} />
+        
         <Physics gravity={[0, -20, 0]}>
-          {/* Main Spawn Island */}
+          {/* Main Spawn Island (Massive 1000x1000) */}
           <RigidBody type="fixed" friction={1}>
             <mesh position={[0, -1, 0]} receiveShadow>
-              <boxGeometry args={[20, 2, 20]} />
+              <boxGeometry args={[1000, 2, 1000]} />
               <meshStandardMaterial color="#4ade80" /> {/* Grass green */}
             </mesh>
             <mesh position={[0, -5, 0]} receiveShadow>
-              <boxGeometry args={[18, 6, 18]} />
+              <boxGeometry args={[1000, 6, 1000]} />
               <meshStandardMaterial color="#78350f" /> {/* Dirt brown */}
             </mesh>
+
+            {/* Invisible boundaries to prevent falling off the world */}
+            <CuboidCollider position={[0, 50, -500]} args={[500, 100, 1]} />
+            <CuboidCollider position={[0, 50, 500]} args={[500, 100, 1]} />
+            <CuboidCollider position={[-500, 50, 0]} args={[1, 100, 500]} />
+            <CuboidCollider position={[500, 50, 0]} args={[1, 100, 500]} />
           </RigidBody>
+
+          {/* Procedural Forests (Static scattered trees) */}
+          {Array.from({ length: 40 }).map((_, i) => {
+            const x = (Math.random() - 0.5) * 400; // Scattter within 400
+            const z = (Math.random() - 0.5) * 400;
+            // Don't spawn perfectly at 0,0 where player spawns
+            if (Math.abs(x) < 10 && Math.abs(z) < 10) return null;
+            return (
+              <RigidBody key={`tree-${i}`} type="fixed" position={[x, 0, z]}>
+                <mesh position={[0, 2, 0]} castShadow>
+                  <boxGeometry args={[1, 4, 1]} />
+                  <meshStandardMaterial color="#78350f" /> {/* Trunk */}
+                </mesh>
+                <mesh position={[0, 5, 0]} castShadow>
+                  <boxGeometry args={[3, 3, 3]} />
+                  <meshStandardMaterial color="#22c55e" /> {/* Leaves */}
+                </mesh>
+              </RigidBody>
+            );
+          })}
 
           {/* Procedural Knowledge Platforms */}
           {cNodes.map((node) => (

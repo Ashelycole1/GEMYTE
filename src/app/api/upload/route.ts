@@ -5,6 +5,7 @@ import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { auth } from '@clerk/nextjs/server';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
