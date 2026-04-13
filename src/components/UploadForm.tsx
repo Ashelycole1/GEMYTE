@@ -56,12 +56,12 @@ export default function UploadForm({ onClose, mobile = false, engine }: UploadFo
               setMessage('Level ready! Launching 3D World…');
               setTimeout(() => router.push('/game'), 800);
             } else {
-              setMessage('Engine failed to build level. Please try again.');
+              setMessage(engine.error || 'Engine failed to build level.');
               setStatus('error');
             }
           }).catch((err: any) => {
             console.error('Engine failure:', err);
-            setMessage('Analyzed. Could not build level.');
+            setMessage(err.message || 'Analyzed. Could not build level.');
             setStatus('error');
           });
         }
