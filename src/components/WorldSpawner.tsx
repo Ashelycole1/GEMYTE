@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Stars, Html, Sky, Environment, Grid } from '@react-three/drei';
+import { Stars, Html, Sky, Environment, SoftShadows } from '@react-three/drei';
 import { Physics, RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
 import { useRouter } from 'next/navigation';
 import { GameConfig, ContentNode } from '@/hooks/useGemyteEngine';
@@ -246,11 +246,17 @@ export default function WorldSpawner() {
 
       {/* ── 3D Canvas ── */}
       <Canvas shadows>
-        <Sky sunPosition={[100, 20, 100]} />
-        <ambientLight intensity={0.6} />
-        <directionalLight castShadow position={[10, 20, 10]} intensity={1.5} color={config.worldMeta?.themeColor || '#ffffff'} />
+        {/* Realistic Lighting & Shadows over old flat grids */}
+        <SoftShadows size={25} samples={10} focus={0.5} />
         
-        <Grid position={[0, 0.05, 0]} args={[1000, 1000]} cellColor="#22c55e" sectionColor="#15803d" sectionSize={10} cellSize={2} fadeDistance={200} />
+        {/* Environment map for realistic PBR reflections instead of plastic flat lighting */}
+        <Environment preset={config.worldMeta?.sky === 'Night' ? 'night' : 'sunset'} />
+        
+        <Sky sunPosition={config.worldMeta?.sky === 'Night' ? [0, -100, 0] : [100, 20, 100]} />
+        <ambientLight intensity={0.2} />
+        <directionalLight castShadow position={[-50, 50, -50]} intensity={1.5} color={config.worldMeta?.themeColor || '#ffffff'} shadow-mapSize={[2048, 2048]}>
+          <orthographicCamera attach="shadow-camera" args={[-100, 100, 100, -100]} />
+        </directionalLight>
         
         <Physics gravity={[0, -20, 0]}>
           {/* Scenery Generation Layer */}
@@ -261,7 +267,10 @@ export default function WorldSpawner() {
 
           {/* Invisible rigid body floor to catch players (graphics are handled in SceneryGenerator) */}
           <RigidBody type="fixed" friction={1}>
-            {/* Base underground dirt */}
+            {/* The actual physics floor the player walks on */}
+            <CuboidCollider position={[0, -1, 0]} args={[500, 1, 500]} />
+            
+            {/* Base underground dirt (for visual depth if they fall off the edge) */}
             <mesh position={[0, -5, 0]} receiveShadow>
               <boxGeometry args={[1000, 6, 1000]} />
               <meshStandardMaterial color="#78350f" /> 
