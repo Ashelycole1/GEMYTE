@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Play } from 'lucide-react';
+import { Compass } from 'lucide-react';
 
 interface StartInstructionsProps {
   title: string;
   onStart: () => void;
+  nodeCount: number;
 }
 
-export default function StartInstructions({ title, onStart }: StartInstructionsProps) {
+export default function StartInstructions({ title, onStart, nodeCount }: StartInstructionsProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -16,43 +17,103 @@ export default function StartInstructions({ title, onStart }: StartInstructionsP
   if (!mounted) return null;
 
   return (
-    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md px-4 select-none">
-      <div className="bg-slate-900 border border-indigo-500/50 rounded-3xl p-8 max-w-md w-full shadow-[0_0_50px_rgba(99,102,241,0.2)] text-center animate-in zoom-in-95 duration-500">
+    <div className="absolute inset-0 z-[100] flex overflow-hidden select-none font-sans text-white bg-black/90 pointer-events-none">
+      
+      {/* Background Texture Overlay (Subtle noise/grain) */}
+      <div 
+        className="absolute inset-0 opacity-10 mix-blend-overlay pointer-events-none" 
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
+        }} 
+      />
+
+      <div className="relative w-full h-full flex flex-col md:flex-row items-center justify-between px-8 md:px-16 pointer-events-auto">
         
-        <div className="w-16 h-16 bg-indigo-500/20 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_20px_rgba(99,102,241,0.5)]">
-          <Play className="w-8 h-8 ml-1" />
+        {/* LEFT COLUMN: Main Menu Feel */}
+        <div className="flex-1 max-w-sm flex flex-col justify-center h-full pt-20 md:pt-0">
+          <div className="mb-20">
+            <h2 className="text-white/90 font-bold tracking-[0.25em] uppercase text-xs sm:text-sm leading-loose">
+              SYSTEM<br/>CALIBRATION
+            </h2>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="border-l-4 border-white pl-4 py-2 opacity-100 transition-opacity">
+              <div className="text-white font-bold tracking-widest uppercase text-sm sm:text-base">{title}</div>
+            </div>
+            <div className="border-l-4 border-transparent pl-4 py-2 opacity-30 hover:opacity-100 transition-opacity cursor-pointer text-sm">
+              <div className="text-white font-bold tracking-widest uppercase truncate">RECORDS [LOCKED]</div>
+            </div>
+            <div className="border-l-4 border-transparent pl-4 py-2 opacity-30 hover:opacity-100 transition-opacity cursor-pointer text-sm">
+              <div className="text-white font-bold tracking-widest uppercase">ABANDON PROTOCOL</div>
+            </div>
+          </div>
+          
+          <div className="mt-16 w-32 border-b border-white/20"></div>
         </div>
 
-        <h2 className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500 text-sm font-black uppercase tracking-widest mb-2">
-          World Generated
-        </h2>
-        
-        <h1 className="text-3xl font-black text-white mb-6 leading-tight">
-          {title}
-        </h1>
-
-        <div className="bg-white/5 rounded-xl border border-white/10 p-5 p-text-left space-y-4 mb-8 text-slate-300 text-sm">
-          <div className="flex items-start gap-3 text-left">
-            <div className="w-6 h-6 rounded bg-slate-800 text-xs flex items-center justify-center font-bold border border-slate-700 shrink-0 mt-0.5">W</div>
-            <p><strong className="text-white">Move Your Avatar:</strong> Use WASD keys or the mobile onscreen joystick.</p>
-          </div>
-          <div className="flex items-start gap-3 text-left">
-            <div className="w-6 h-6 rounded-[2em] bg-slate-800 text-xs flex items-center justify-center font-bold border border-slate-700 shrink-0 mt-0.5 px-3">_</div>
-            <p><strong className="text-white">Jump:</strong> Press Spacebar or the onscreen jump button.</p>
-          </div>
-          <div className="flex items-start gap-3 text-left">
-            <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs flex items-center justify-center font-bold border border-emerald-500/50 shrink-0 mt-0.5">✦</div>
-            <p><strong className="text-white">Goal:</strong> Find and walk over the glowing beacons scattered on the map to learn facts and unlock the Final Boss.</p>
+        {/* CENTER COLUMN: The "Canvas" cutout (visible on desktop) */}
+        <div className="hidden md:flex flex-col items-center justify-center relative">
+          {/* This creates a central window that lets the vibrant 3D world shine through
+              by cutting a transparent hole in a dark local overlay */}
+          <div 
+            className="w-[380px] h-[520px] relative border-[8px] border-[#0a0a0a]"
+            style={{
+              backgroundColor: 'rgba(0,0,0,0.1)',
+              boxShadow: 'inset 0 0 60px rgba(0,0,0,1)',
+              backdropFilter: 'blur(2px)' // Slight blur for that "painting" feel
+            }}
+          >
+            {/* Rough canvas edge effect (CSS hack with borders) */}
+            <div className="absolute inset-0 border border-white/10 m-2 mix-blend-overlay"></div>
           </div>
         </div>
 
+        {/* RIGHT COLUMN: Details & Lore */}
+        <div className="flex-1 max-w-md flex flex-col justify-center h-full pl-0 md:pl-16 pb-20 md:pb-0">
+          
+          <div className="mb-6 opacity-90">
+            <Compass className="w-8 h-8 text-white" />
+          </div>
+          
+          <h1 className="text-white text-2xl sm:text-3xl font-black tracking-widest uppercase mb-4 leading-tight">
+            {title}
+          </h1>
+          
+          <div className="flex items-center gap-1 mb-8">
+            <span className="text-white/40 text-[10px] sm:text-xs tracking-[0.25em] uppercase mr-3">Difficulty</span>
+            <span className="text-white/80 font-black tracking-widest text-sm">/ / / <span className="text-white/20">/ /</span></span>
+          </div>
+          
+          <div className="space-y-6">
+            <p className="text-white/60 text-sm sm:text-base leading-relaxed font-medium">
+              You have materialized inside a newly generated dimension. The laws of physics here are stable, but the internal knowledge nodes have scattered across the terrain.
+            </p>
+
+            <p className="text-[#f5b041] text-sm sm:text-base leading-relaxed font-bold">
+              Move using WASD or Joystick. Recover the {nodeCount} remaining beacons to reconstruct the logic required to unlock the Final Sequence.
+            </p>
+          </div>
+
+        </div>
+        
+      </div>
+
+      {/* BOTTOM RIGHT BUTTONS */}
+      <div className="absolute bottom-8 right-8 md:bottom-12 md:right-16 flex gap-6 sm:gap-10 pointer-events-auto">
         <button 
-          onClick={onStart}
-          className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white px-6 py-4 rounded-2xl font-bold text-lg shadow-lg hover:shadow-indigo-500/30 transition-all active:scale-[0.98]"
+          onClick={onStart} 
+          className="text-white/60 hover:text-white font-bold tracking-[0.2em] uppercase text-xs sm:text-sm transition-all border-b-2 border-transparent hover:border-white pb-1 group flex items-center gap-2"
         >
-          Enter Dimension
+          Confirm
+        </button>
+        <button 
+          className="text-white/40 hover:text-white font-bold tracking-[0.2em] uppercase text-xs sm:text-sm transition-all border-b-2 border-transparent hover:border-white pb-1"
+        >
+          Back
         </button>
       </div>
+
     </div>
   );
 }

@@ -160,6 +160,7 @@ export default function WorldSpawner() {
       {showIntro && (
         <StartInstructions 
           title={config.worldMeta?.title || 'Unknown World'} 
+          nodeCount={cNodes.length}
           onStart={() => setShowIntro(false)} 
         />
       )}
