@@ -10,7 +10,7 @@ interface Discipline {
   id: string;
   title: string;
   category: string;
-  icon: React.ElementType;
+  icon: React.ElementType<any>;
   iconColorClass: string;
 }
 
@@ -52,7 +52,7 @@ export default function DisciplineSelect({ onBack, onEnterHub, selectedIds, togg
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-10">
         {DISCIPLINES.map(disp => {
           const isSelected = selectedIds.includes(disp.id);
-          const Icon = disp.icon;
+          const Icon: any = disp.icon;
           return (
             <button
               key={disp.id}

@@ -4,7 +4,7 @@ interface LevelOption {
   id: string;
   title: string;
   subtitle: string;
-  icon: React.ElementType;
+  icon: React.ElementType<any>;
   iconColorClass: string;
   bgColorClass: string;
 }
@@ -31,7 +31,7 @@ export default function LevelSelect({ onSelect, selectedId }: { onSelect: (id: s
       <div className="flex flex-wrap justify-center gap-4 md:gap-6 lg:gap-8 max-w-3xl">
         {LEVEL_OPTIONS.map(opt => {
           const isSelected = selectedId === opt.id;
-          const Icon = opt.icon;
+          const Icon: any = opt.icon;
           return (
             <button
               key={opt.id}
