@@ -27,7 +27,7 @@ Rules:
 
 Output ONLY the raw JSON object. No markdown. No explanation. No code fences.`;
 
-async function generateViaOpenRouter(text: string): Promise<string> {
+async function generateViaOpenRouter(text: string): Promise<{ text: string; model: string }> {
   const openrouterKey = process.env.OPENROUTER_API_KEY;
   if (!openrouterKey) throw new Error('NO_OPENROUTER_KEY');
 
@@ -40,12 +40,12 @@ async function generateViaOpenRouter(text: string): Promise<string> {
     },
   });
 
-  // Try models in order — first available wins
   const models = [
-    'google/gemini-3.1-flash-preview',
-    'google/gemini-3.1-flash-lite-preview',
-    'google/gemini-2.5-flash-preview',
-    'google/gemini-2.0-flash-001',
+    'google/gemini-3.1-pro-preview',       // Most capable Gemini 3.1
+    'google/gemini-3.1-flash-lite-preview', // Fast Gemini 3.1
+    'google/gemini-3-flash-preview',        // Gemini 3 Flash
+    'google/gemini-2.5-flash',              // Stable fallback
+    'google/gemini-2.0-flash-001',          // Oldest stable fallback
   ];
 
   let lastError = '';
@@ -63,7 +63,7 @@ async function generateViaOpenRouter(text: string): Promise<string> {
         temperature: 0.7,
         response_format: { type: 'json_object' },
       });
-      return response.choices[0].message.content || '';
+      return { text: response.choices[0].message.content || '', model: `OpenRouter → ${model}` };
     } catch (err: any) {
       lastError = err?.message || String(err);
       const is429 = lastError.includes('429') || lastError.includes('quota') || lastError.includes('rate');
@@ -74,7 +74,7 @@ async function generateViaOpenRouter(text: string): Promise<string> {
   throw new Error(`All OpenRouter models rate-limited: ${lastError}`);
 }
 
-async function generateViaGoogle(text: string): Promise<string> {
+async function generateViaGoogle(text: string): Promise<{ text: string; model: string }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('NO_GEMINI_KEY');
 
@@ -92,7 +92,7 @@ async function generateViaGoogle(text: string): Promise<string> {
       const result = await model.generateContent(
         `Analyze the following content and generate a valid Game Config JSON.\n\nContent:\n"""\n${text.substring(0, 6000)}\n"""\n\nReturn ONLY the raw JSON. No code fences.`
       );
-      return result.response.text().trim();
+      return { text: result.response.text().trim(), model: `Google → ${modelName}` };
     } catch (err: any) {
       lastError = err?.message || String(err);
       const is429 = lastError.includes('429') || lastError.includes('quota') || lastError.includes('RESOURCE_EXHAUSTED');
@@ -113,25 +113,25 @@ export async function POST(req: Request) {
     }
 
     // Try OpenRouter first (Gemini 3.1), fall back to Google directly
-    let rawText = '';
+    let result: { text: string; model: string };
     try {
-      rawText = await generateViaOpenRouter(text);
+      result = await generateViaOpenRouter(text);
     } catch (err: any) {
       if (err.message === 'NO_OPENROUTER_KEY') {
-        // Key not set — fall through to Google
-        rawText = await generateViaGoogle(text);
+        result = await generateViaGoogle(text);
       } else {
-        // OpenRouter failed for another reason — try Google as backup
         try {
-          rawText = await generateViaGoogle(text);
+          result = await generateViaGoogle(text);
         } catch {
-          throw err; // both failed — re-throw original error
+          throw err;
         }
       }
     }
 
+    console.log(`[GEMYTE Engine] Provider: ${result!.model}`);
+
     // Clean markdown fences just in case
-    const cleaned = rawText
+    const cleaned = result!.text
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
       .replace(/\s*```$/i, '')
@@ -159,9 +159,10 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
       orbId: orbId || null,
       textLength: text.length,
+      provider: result!.model,
     };
 
-    return NextResponse.json({ success: true, gameConfig });
+    return NextResponse.json({ success: true, gameConfig, provider: result!.model });
 
   } catch (error: any) {
     console.error('Generate engine error:', error?.message || error);
