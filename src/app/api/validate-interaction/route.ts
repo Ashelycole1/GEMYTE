@@ -1,9 +1,43 @@
 import { NextResponse } from 'next/server';
+import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '@/lib/supabase';
 import { auth } from '@clerk/nextjs/server';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
+async function callAI(prompt: string): Promise<string> {
+  // 1. Try OpenRouter first (Gemini 3.1)
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
+  if (openrouterKey) {
+    try {
+      const client = new OpenAI({
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: openrouterKey,
+        defaultHeaders: {
+          'HTTP-Referer': 'https://gemyte.vercel.app',
+          'X-Title': 'GEMYTE Engine',
+        },
+      });
+      const response = await client.chat.completions.create({
+        model: 'google/gemini-3.1-flash-preview',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
+      });
+      return response.choices[0].message.content || '';
+    } catch {
+      // fall through to Google
+    }
+  }
+
+  // 2. Fallback to Google Gemini
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const result = await model.generateContent(prompt);
+  return result.response.text().trim();
+}
 
 export async function POST(req: Request) {
   try {
@@ -19,6 +53,7 @@ export async function POST(req: Request) {
     // Try to find matching context from vector DB (non-fatal)
     let contextText = '';
     try {
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
       const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
       const queryEmb = await embeddingModel.embedContent(question);
       const queryEmbedding = queryEmb.embedding.values;
@@ -34,10 +69,8 @@ export async function POST(req: Request) {
         contextText = (docs as any[]).map((d: any) => d.content).join('\n---\n');
       }
     } catch {
-      // RAG failed — still evaluate with Gemini alone, no vector context
+      // RAG failed — still evaluate without vector context
     }
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `You are an educational AI evaluator for GEMYTE.
 A student was asked: "${question}"
@@ -56,8 +89,9 @@ Evaluate the answer and respond with ONLY a JSON object (no markdown):
 
 Be lenient — partial credit for partially correct answers.`;
 
-    const result = await model.generateContent(prompt);
-    const rawText = result.response.text().trim()
+    const rawText = await callAI(prompt);
+
+    const cleaned = rawText
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
       .replace(/\s*```$/i, '')
@@ -65,7 +99,7 @@ Be lenient — partial credit for partially correct answers.`;
 
     let evaluation: any;
     try {
-      evaluation = JSON.parse(rawText);
+      evaluation = JSON.parse(cleaned);
     } catch {
       return NextResponse.json({ error: 'AI returned malformed evaluation' }, { status: 500 });
     }
@@ -78,14 +112,13 @@ Be lenient — partial credit for partially correct answers.`;
           user_id_param: userId,
           xp_amount: evaluation.xpAwarded,
         });
-
         await supabase.from('interactions').insert({
           user_id: userId,
           type: 'validated_answer',
           xp_awarded: evaluation.xpAwarded,
         } as any);
       } catch {
-        // XP write failed — non-fatal, still return evaluation
+        // XP write failed — non-fatal
       }
     }
 
@@ -95,4 +128,3 @@ Be lenient — partial credit for partially correct answers.`;
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-
