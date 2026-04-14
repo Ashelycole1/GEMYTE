@@ -134,8 +134,7 @@ export default function Home() {
 
           {/* Sub */}
           <p className="text-sm sm:text-base text-slate-400 leading-relaxed mb-7 max-w-md fade-in-up-delay-2">
-            Upload any syllabus and watch it transform into living knowledge orbs.
-            Ask questions, earn XP, and climb the Constellation.
+            Grow smarter with flexible AI solutions. Upload your syllabus, build Knowledge Orbs, and conquer STEM through gamified cognitive challenges.
           </p>
 
           {/* CTAs */}
