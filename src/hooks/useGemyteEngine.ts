@@ -8,6 +8,7 @@ export interface WorldMeta {
   title: string;
   themeColor: string;
   sky: string;
+  environmentType?: 'EGYPT' | 'CYBERPUNK' | 'FANTASY_FOREST' | 'MODERN_CITY' | 'DEFAULT';
 }
 
 export interface ContentNode {
@@ -39,6 +40,7 @@ const DEFAULT_CONFIG: GameConfig = {
     title: 'Explore Knowledge',
     themeColor: '#3b82f6',
     sky: 'Night',
+    environmentType: 'DEFAULT',
   },
   contentNodes: [],
   finalBossChallenge: {

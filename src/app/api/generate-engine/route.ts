@@ -15,6 +15,7 @@ Rules:
 - worldMeta.themeColor: hex color string like "#b91c1c"
 - worldMeta.title: short descriptive title string
 - worldMeta.sky: one of "Sunset", "Night", "Dawn", "Day"
+- worldMeta.environmentType: one of "EGYPT", "CYBERPUNK", "FANTASY_FOREST", "MODERN_CITY", "DEFAULT" (Choose strictly based on the subject matter context)
 - contentNodes: array of 5-7 nodes, each with:
     - id: number starting at 1
     - position: [x, y, z] where x and z are between -8 and 8, y is between 0 and 3

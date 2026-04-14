@@ -15,6 +15,7 @@ import MobileJoystick from './game/MobileJoystick';
 import { useIsMobile } from './game/useControls';
 import StartInstructions from './game/StartInstructions';
 import MiniRadar from './game/MiniRadar';
+import SceneryGenerator from './game/SceneryGenerator';
 
 // ── Physical Node Platform Component ──
 function KnowledgePlatform({
@@ -252,15 +253,18 @@ export default function WorldSpawner() {
         <Grid position={[0, 0.05, 0]} args={[1000, 1000]} cellColor="#22c55e" sectionColor="#15803d" sectionSize={10} cellSize={2} fadeDistance={200} />
         
         <Physics gravity={[0, -20, 0]}>
-          {/* Main Spawn Island (Massive 1000x1000) */}
+          {/* Scenery Generation Layer */}
+          <SceneryGenerator 
+            themeColor={config.worldMeta?.themeColor || '#3b82f6'} 
+            environmentType={config.worldMeta?.environmentType || 'DEFAULT'} 
+          />
+
+          {/* Invisible rigid body floor to catch players (graphics are handled in SceneryGenerator) */}
           <RigidBody type="fixed" friction={1}>
-            <mesh position={[0, -1, 0]} receiveShadow>
-              <boxGeometry args={[1000, 2, 1000]} />
-              <meshStandardMaterial color="#4ade80" /> {/* Grass green */}
-            </mesh>
+            {/* Base underground dirt */}
             <mesh position={[0, -5, 0]} receiveShadow>
               <boxGeometry args={[1000, 6, 1000]} />
-              <meshStandardMaterial color="#78350f" /> {/* Dirt brown */}
+              <meshStandardMaterial color="#78350f" /> 
             </mesh>
 
             {/* Invisible boundaries to prevent falling off the world */}
@@ -269,26 +273,6 @@ export default function WorldSpawner() {
             <CuboidCollider position={[-500, 50, 0]} args={[1, 100, 500]} />
             <CuboidCollider position={[500, 50, 0]} args={[1, 100, 500]} />
           </RigidBody>
-
-          {/* Procedural Forests (Static scattered trees) */}
-          {Array.from({ length: 40 }).map((_, i) => {
-            const x = (Math.random() - 0.5) * 400; // Scattter within 400
-            const z = (Math.random() - 0.5) * 400;
-            // Don't spawn perfectly at 0,0 where player spawns
-            if (Math.abs(x) < 10 && Math.abs(z) < 10) return null;
-            return (
-              <RigidBody key={`tree-${i}`} type="fixed" position={[x, 0, z]}>
-                <mesh position={[0, 2, 0]} castShadow>
-                  <boxGeometry args={[1, 4, 1]} />
-                  <meshStandardMaterial color="#78350f" /> {/* Trunk */}
-                </mesh>
-                <mesh position={[0, 5, 0]} castShadow>
-                  <boxGeometry args={[3, 3, 3]} />
-                  <meshStandardMaterial color="#22c55e" /> {/* Leaves */}
-                </mesh>
-              </RigidBody>
-            );
-          })}
 
           {/* Procedural Knowledge Platforms */}
           {cNodes.map((node) => (
