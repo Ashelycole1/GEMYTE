@@ -18,7 +18,7 @@ export default function MiniRadar({ nodes, completedIds }: MiniRadarProps) {
   };
 
   return (
-    <div className="absolute top-4 right-4 z-10 w-36 h-36 md:w-48 md:h-48 bg-slate-900/60 backdrop-blur-md rounded-full border-4 border-slate-700/50 shadow-2xl overflow-hidden pointer-events-none">
+    <div className="absolute top-28 md:top-4 right-4 md:right-8 z-10 w-32 h-32 md:w-48 md:h-48 bg-slate-900/60 backdrop-blur-md rounded-full border-4 border-slate-700/50 shadow-2xl overflow-hidden pointer-events-none">
       
       {/* Radar Sweeper Animation */}
       <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent_70%,rgba(16,185,129,0.3)_100%)] animate-spin" style={{ animationDuration: '3s' }} />

@@ -167,7 +167,7 @@ export default function WorldSpawner() {
 
       {/* ── Node Info Panel ── */}
       {selectedNode && !showBoss && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto w-full max-w-lg px-4">
+        <div className="absolute top-36 md:top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto w-full max-w-lg px-4">
           <div className="bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl p-6 shadow-2xl animate-in slide-in-from-top-4">
             <div className="flex justify-between items-start mb-3">
               <span className="text-indigo-600 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
