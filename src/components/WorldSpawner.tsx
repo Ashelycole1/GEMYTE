@@ -13,6 +13,8 @@ import Link from 'next/link';
 import AvatarPlayer from './game/AvatarPlayer';
 import MobileJoystick from './game/MobileJoystick';
 import { useIsMobile } from './game/useControls';
+import StartInstructions from './game/StartInstructions';
+import MiniRadar from './game/MiniRadar';
 
 // ── Physical Node Platform Component ──
 function KnowledgePlatform({
@@ -79,6 +81,7 @@ export default function WorldSpawner() {
   const [completedNodes, setCompletedNodes] = useState<number[]>([]);
   const [showBoss, setShowBoss] = useState(false);
   const [bossResult, setBossResult] = useState<'idle' | 'won' | 'lost'>('idle');
+  const [showIntro, setShowIntro] = useState(true);
 
   // Load config
   useEffect(() => {
@@ -147,6 +150,19 @@ export default function WorldSpawner() {
           />
         </div>
       </div>
+
+      {/* ── Optional: MiniMap Radar ── */}
+      {!showIntro && !showBoss && (
+        <MiniRadar nodes={cNodes} completedIds={completedNodes} />
+      )}
+
+      {/* ── Intro Instructions Modal ── */}
+      {showIntro && (
+        <StartInstructions 
+          title={config.worldMeta?.title || 'Unknown World'} 
+          onStart={() => setShowIntro(false)} 
+        />
+      )}
 
       {/* ── Node Info Panel ── */}
       {selectedNode && !showBoss && (
