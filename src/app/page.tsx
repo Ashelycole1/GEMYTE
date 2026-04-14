@@ -7,13 +7,27 @@ import Link from "next/link";
 import { Sparkles, Trophy, ArrowRight, Zap, Menu, X, Timer } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useGemyteEngine } from "@/hooks/useGemyteEngine";
+import LevelSelect from "@/components/Onboarding/LevelSelect";
+import DisciplineSelect from "@/components/Onboarding/DisciplineSelect";
 
 export default function Home() {
   const { isLoaded, isSignedIn, user } = useUser();
   const [xp, setXp] = useState<number | null>(null);
-  const [showUpload, setShowUpload] = useState(false);
+  const [workflowStep, setWorkflowStep] = useState<'hero' | 'level' | 'discipline' | 'upload'>('hero');
+  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
+  const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const engine = useGemyteEngine();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('onboarding') === 'true') {
+        setWorkflowStep('level');
+        window.history.replaceState({}, '', '/');
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (isSignedIn) {
@@ -115,6 +129,7 @@ export default function Home() {
         )}
 
         {/* ── HERO ── */}
+        {workflowStep === 'hero' && (
         <div className="pointer-events-auto flex-1 flex flex-col justify-center px-4 sm:px-8 lg:px-16 max-w-3xl">
           {/* Badge */}
           <div className="badge-glow inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-5 self-start fade-in-up">
@@ -143,8 +158,8 @@ export default function Home() {
               <>
                 <button
                   className="btn-primary text-sm"
-                  onClick={() => setShowUpload(v => !v)}>
-                  {showUpload ? 'Close Panel' : 'Upload Syllabus'}
+                  onClick={() => setWorkflowStep('level')}>
+                  Initialize Engine
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 <Link href="/leaderboard" className="btn-ghost text-sm text-center justify-center">
@@ -153,9 +168,9 @@ export default function Home() {
               </>
             ) : (
               <>
-                <SignInButton mode="modal">
+                <SignInButton mode="modal" forceRedirectUrl="/?onboarding=true">
                   <button className="btn-primary text-sm w-full sm:w-auto justify-center">
-                    Get Started Free <ArrowRight className="w-4 h-4" />
+                    Sign In <ArrowRight className="w-4 h-4" />
                   </button>
                 </SignInButton>
                 <Link href="/leaderboard" className="btn-ghost text-sm text-center justify-center">
@@ -165,17 +180,50 @@ export default function Home() {
             )}
           </div>
         </div>
+        )}
+
+        {/* ── ONBOARDING / LEVEL SELECT ── */}
+        {workflowStep === 'level' && (
+          <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm overflow-y-auto">
+            <div className="min-h-full flex flex-col justify-center items-center py-20 px-4">
+              <LevelSelect 
+                selectedId={selectedLevel} 
+                onSelect={(id) => {
+                  setSelectedLevel(id);
+                  setWorkflowStep('discipline');
+                }} 
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── ONBOARDING / DISCIPLINE SELECT ── */}
+        {workflowStep === 'discipline' && (
+          <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm overflow-y-auto">
+            <div className="min-h-full flex flex-col justify-center items-center py-20 px-4">
+              <DisciplineSelect 
+                selectedIds={selectedDisciplines}
+                toggleDiscipline={(id) => {
+                  setSelectedDisciplines(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+                }}
+                onBack={() => setWorkflowStep('level')}
+                onEnterHub={() => setWorkflowStep('upload')}
+              />
+            </div>
+          </div>
+        )}
 
         {/* ── UPLOAD PANEL ── */}
-        {showUpload && isSignedIn && (
+        {workflowStep === 'upload' && isSignedIn && (
           <>
+            <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm" onClick={() => setWorkflowStep('hero')} />
             {/* Mobile: full-width bottom sheet */}
-            <div className="pointer-events-auto sm:hidden absolute bottom-0 left-0 right-0 z-20 fade-in-up">
-              <UploadForm onClose={() => setShowUpload(false)} mobile engine={engine} />
+            <div className="pointer-events-auto sm:hidden absolute bottom-0 left-0 right-0 z-30 fade-in-up">
+              <UploadForm onClose={() => setWorkflowStep('hero')} mobile engine={engine} />
             </div>
             {/* Desktop: floating panel right */}
-            <div className="pointer-events-auto hidden sm:block absolute right-6 lg:right-10 top-1/2 -translate-y-1/2 z-20 fade-in-up">
-              <UploadForm onClose={() => setShowUpload(false)} engine={engine} />
+            <div className="pointer-events-auto hidden sm:block absolute right-6 lg:right-10 top-1/2 -translate-y-1/2 z-30 fade-in-up">
+              <UploadForm onClose={() => setWorkflowStep('hero')} engine={engine} />
             </div>
           </>
         )}
