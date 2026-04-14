@@ -41,11 +41,12 @@ async function generateViaOpenRouter(text: string): Promise<{ text: string; mode
   });
 
   const models = [
-    'google/gemini-3.1-pro-preview',       // Most capable Gemini 3.1
-    'google/gemini-3.1-flash-lite-preview', // Fast Gemini 3.1
-    'google/gemini-3-flash-preview',        // Gemini 3 Flash
-    'google/gemini-2.5-flash',              // Stable fallback
-    'google/gemini-2.0-flash-001',          // Oldest stable fallback
+    'google/gemma-4-31b-it:free',              // Google's best FREE model (262k ctx)
+    'google/gemma-4-26b-a4b-it:free',          // Google Gemma 4 free alternative
+    'meta-llama/llama-3.3-70b-instruct:free',  // Meta Llama 70B free
+    'google/gemma-3-27b-it:free',              // Smaller free Google fallback
+    'google/gemini-2.5-flash',                 // Paid fallback (if free models fail)
+    'google/gemini-2.0-flash-001',
   ];
 
   let lastError = '';
