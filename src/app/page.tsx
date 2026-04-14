@@ -184,7 +184,7 @@ export default function Home() {
 
         {/* ── ONBOARDING / LEVEL SELECT ── */}
         {workflowStep === 'level' && (
-          <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm overflow-y-auto pointer-events-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
             <div className="min-h-full flex flex-col justify-center items-center py-20 px-4">
               <LevelSelect 
                 selectedId={selectedLevel} 
@@ -199,7 +199,7 @@ export default function Home() {
 
         {/* ── ONBOARDING / DISCIPLINE SELECT ── */}
         {workflowStep === 'discipline' && (
-          <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm overflow-y-auto pointer-events-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
             <div className="min-h-full flex flex-col justify-center items-center py-20 px-4">
               <DisciplineSelect 
                 selectedIds={selectedDisciplines}
