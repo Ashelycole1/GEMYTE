@@ -16,6 +16,7 @@
     "@langchain/textsplitters": "^1.0.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
+    "@react-three/postprocessing": "^3.0.4",
     "@react-three/rapier": "^2.2.0",
     "@supabase/supabase-js": "^2.103.0",
     "cheerio": "^1.2.0",
@@ -26,6 +27,7 @@
     "pdf-parse": "^2.4.5",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "simplex-noise": "^4.0.3",
     "three": "^0.183.2"
   },
   "devDependencies": {

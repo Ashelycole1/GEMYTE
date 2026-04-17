@@ -240,7 +240,7 @@ export default function PhysicsBridge({ engine }: { engine?: any }) {
                   })}
 
                   {/* Spawn Knowledge Nodes between some pipes */}
-                  {engine.gameConfig.gameplay.targetKnowledge.map((topic: string, i: number) => (
+                  {engine?.gameConfig?.gameplay?.targetKnowledge?.map((topic: string, i: number) => (
                     <KnowledgeOrb 
                       key={`quest-${i}`} 
                       initialPosition={[16 + i * 18, 5 + Math.random() * 4, 0]} 

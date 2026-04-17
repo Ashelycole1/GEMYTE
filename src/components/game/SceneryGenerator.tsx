@@ -1,6 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { RigidBody } from '@react-three/rapier';
-import { Sparkles } from '@react-three/drei';
+import { Instance, Instances, Sparkles, useTexture } from '@react-three/drei';
+import * as THREE from 'three';
+import { createNoise2D } from 'simplex-noise';
 
 interface SceneryProps {
   environmentType: 'EGYPT' | 'CYBERPUNK' | 'FANTASY_FOREST' | 'MODERN_CITY' | 'DEFAULT' | string;
@@ -9,200 +11,217 @@ interface SceneryProps {
 
 export default function SceneryGenerator({ environmentType, themeColor }: SceneryProps) {
   
-  // Deterministic seed generation based on world properties ensures the 
-  // scatter stays exactly the same across re-renders without dropping FPS.
-  const sceneryData = useMemo(() => {
+  // Terrain setup with Simplex Noise
+  const { terrainGeom, sceneryData } = useMemo(() => {
+    // Topography Generation - Reduced vertex count dramatically to prevent Trimesh freezing
+    const geom = new THREE.PlaneGeometry(800, 800, 48, 48); // much lower density for performance
+    geom.rotateX(-Math.PI / 2);
+    const pos = geom.attributes.position;
+    const noise2D = createNoise2D();
+
+    const colors = [];
+    const colorObj = new THREE.Color();
+    const roadColor = new THREE.Color('#262626');
+    const grassColor = new THREE.Color('#4ade80');
+    const rockColor = new THREE.Color('#6b7280');
+
+    for(let i=0; i<pos.count; i++) {
+        const x = pos.getX(i);
+        const z = pos.getZ(i);
+
+        let dist = Math.sqrt(x*x + z*z);
+        let flatten = Math.max(0, Math.min(1, (dist - 20) / 100)); 
+        
+        let noise = (noise2D(x/250, z/250) * 40) + (noise2D(x/50, z/50) * 5);
+        let y = noise * flatten;
+
+        const roadCenterZ = Math.sin(x / 100) * 100;
+        const distToRoad = Math.abs(z - roadCenterZ);
+
+        if (distToRoad < 15) {
+            y = (noise2D(x/250, roadCenterZ/250) * 40 * flatten);
+            colorObj.copy(roadColor);
+        } else if (distToRoad < 20) {
+            colorObj.lerpColors(roadColor, grassColor, (distToRoad - 15) / 5);
+        } else {
+            if (y > 20) {
+                 colorObj.lerpColors(grassColor, rockColor, Math.min(1, (y - 20) / 20));
+            } else {
+                 colorObj.copy(grassColor);
+            }
+        }
+
+        pos.setY(i, y - 1);
+        colors.push(colorObj.r, colorObj.g, colorObj.b);
+    }
+
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geom.computeVertexNormals();
+
     const props: any[] = [];
-    
-    // Helper to get random coord far from center (spawn)
     const getPos = () => {
-      let x = 0, z = 0;
-      // Force them to spawn away from the center (0,0) where the player starts
-      while (Math.abs(x) < 20 && Math.abs(z) < 20) {
-        x = (Math.random() - 0.5) * 800; // Spread across 800 units
-        z = (Math.random() - 0.5) * 800;
+      let x = 0, z = 0, dist = 0;
+      while (true) {
+        x = (Math.random() - 0.5) * 600;
+        z = (Math.random() - 0.5) * 600;
+        const roadZ = Math.sin(x/100) * 100;
+        dist = Math.abs(z - roadZ);
+        if (Math.sqrt(x*x+z*z) > 30 && dist > 25) break;
       }
       return [x, z];
     };
 
-    if (environmentType === 'EGYPT') {
-      // Scatter Pyramids
-      for (let i = 0; i < 40; i++) {
-        const [x, z] = getPos();
-        const height = 15 + Math.random() * 30; // Random heights up to 45
-        const width = height * 1.5;
-        props.push({ id: `pyr-${i}`, type: 'pyramid', pos: [x, 0, z], args: [width, height, 4] });
-      }
-      // Scatter some rocks/ruins
-      for (let i = 0; i < 60; i++) {
-        const [x, z] = getPos();
-        props.push({ id: `rock-${i}`, type: 'rock', pos: [x, 0, z], scale: 1 + Math.random() * 4 });
-      }
-
-    } else if (environmentType === 'CYBERPUNK') {
-      // Scatter Skyscrapers
-      for (let i = 0; i < 70; i++) {
-        const [x, z] = getPos();
-        const height = 40 + Math.random() * 120;
-        const width = 10 + Math.random() * 15;
-        props.push({ id: `bldg-${i}`, type: 'skyscraper', pos: [x, height/2 - 2, z], args: [width, height, width] });
-      }
-
-    } else if (environmentType === 'FANTASY_FOREST') {
-      // Dense magical forest
-      for (let i = 0; i < 120; i++) {
-        const [x, z] = getPos();
-        const height = 5 + Math.random() * 10;
-        props.push({ id: `tree-${i}`, type: 'fantasy-tree', pos: [x, 0, z], height });
-      }
-      // Massive crystals
-      for (let i = 0; i < 20; i++) {
-        const [x, z] = getPos();
-        props.push({ id: `crystal-${i}`, type: 'crystal', pos: [x, 0, z], scale: 3 + Math.random() * 8 });
-      }
-
-    } else if (environmentType === 'MODERN_CITY') {
-       // Regular concrete buildings
-       for (let i = 0; i < 60; i++) {
-        const [x, z] = getPos();
-        const height = 20 + Math.random() * 50;
-        const width = 15 + Math.random() * 20;
-        props.push({ id: `citybldg-${i}`, type: 'city-building', pos: [x, height/2 - 2, z], args: [width, height, width] });
-      }
-    } else {
-      // DEFAULT (Standard sparse nature) //
-      for (let i = 0; i < 60; i++) {
-        const [x, z] = getPos();
-        props.push({ id: `deftree-${i}`, type: 'default-tree', pos: [x, 0, z] });
-      }
+    // Reduced Palm Trees for performance
+    for (let i=0; i<25; i++) {
+        const [x,z] = getPos();
+        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 20) / 100));
+        let hy = (noise2D(x/250, z/250)*40 + noise2D(x/50,z/50)*5) * flatten - 1;
+        props.push({ id:`palm-${i}`, type: 'palm', pos: [x, hy, z], height: 15 + Math.random()*15 });
     }
 
-    return props;
-  }, [environmentType]);
+    // Reduced Broadleaf Trees for performance
+    for (let i=0; i<45; i++) {
+        const [x,z] = getPos();
+        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 20) / 100));
+        let hy = (noise2D(x/250, z/250)*40 + noise2D(x/50,z/50)*5) * flatten - 1;
+        props.push({ id:`tree-${i}`, type: 'broadleaf', pos: [x, hy, z], height: 8 + Math.random()*10 });
+    }
 
-  // Determine atmospheric Fog color based on biome
-  let fogColor = '#87CEEB'; // default sky blue
-  if (environmentType === 'EGYPT') fogColor = '#fde047'; // Sandstorm yellow
-  if (environmentType === 'CYBERPUNK') fogColor = '#0f172a'; // Deep night
-  if (environmentType === 'FANTASY_FOREST') fogColor = '#3b0764'; // Deep mystical purple
-  if (environmentType === 'MODERN_CITY') fogColor = '#94a3b8'; // Smog gray
+    // Houses
+    for (let i=0; i<8; i++) {
+        const [x,z] = getPos();
+        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 20) / 100));
+        let hy = (noise2D(x/250, z/250)*40 + noise2D(x/50,z/50)*5) * flatten - 1;
+        props.push({ id:`house-${i}`, type: 'luxury-house', pos: [x, hy+2, z] });
+    }
+
+    // Cars
+    for (let i=0; i<10; i++) {
+        const x = (Math.random() - 0.5) * 600;
+        const baseZ = Math.sin(x/100) * 100;
+        const laneOffset = Math.random() > 0.5 ? 5 : -5;
+        const z = baseZ + laneOffset;
+        let angle = Math.atan(-Math.cos(x/100)); 
+        if (laneOffset < 0) angle += Math.PI;
+
+        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 20) / 100));
+        let hy = (noise2D(x/250, baseZ/250)*40 * flatten) - 0.5;
+
+        if (Math.abs(x) > 30) {
+             props.push({ id:`car-${i}`, type: 'car', pos: [x, hy, z], rotation: [0, angle, 0] });
+        }
+    }
+
+    return { terrainGeom: geom, sceneryData: props };
+  }, []);
+
+  let fogColor = '#cbd5e1';
 
   return (
     <>
-      <fog attach="fog" args={[fogColor, 40, 350]} />
+      <fog attach="fog" args={[fogColor, 40, 450]} />
 
-      {/* Cyberpunk & Fantasy get floating particles */}
-      {(environmentType === 'CYBERPUNK' || environmentType === 'FANTASY_FOREST') && (
-        <Sparkles count={500} scale={200} size={5} speed={0.4} opacity={0.6} color={themeColor} position={[0, 10, 0]} />
-      )}
-
-      {/* Primary Floor Layer (Hides the rigid body dirt beneath it) */}
-      <mesh position={[0, -0.9, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[1000, 1000]} />
-        <meshStandardMaterial color={
-          environmentType === 'EGYPT' ? '#d2b48c' : 
-          environmentType === 'CYBERPUNK' ? '#111827' :
-          environmentType === 'FANTASY_FOREST' ? '#14532d' :
-          environmentType === 'MODERN_CITY' ? '#4b5563' : '#4ade80'
-        } roughness={1} />
+      {/* Realistic Terrain Visuals (Removed Rapier trimesh to prevent WASM GPU crash) */}
+      <mesh receiveShadow geometry={terrainGeom}>
+          <meshStandardMaterial vertexColors roughness={0.9} />
       </mesh>
 
-      {/* Render the calculated scenery primitives */}
+      {/* Underlying dirt plane if camera falls below terrain */}
+      <mesh position={[0,-20,0]} rotation={[-Math.PI/2,0,0]}>
+         <planeGeometry args={[1000,1000]} />
+         <meshBasicMaterial color="#3f2c19" />
+      </mesh>
+
+      {/* Render Scenery Objects */}
       {sceneryData.map((item) => {
-        
         switch(item.type) {
-          case 'pyramid':
-            return (
-              <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders="hull">
-                <mesh castShadow receiveShadow>
-                  {/* cone with 4 radial segments makes a perfect pyramid! */}
-                  <coneGeometry args={item.args as any} />
-                  <meshStandardMaterial color="#c29d59" roughness={0.9} />
-                </mesh>
-              </RigidBody>
-            );
+          
+          case 'palm':
+             return (
+               <RigidBody key={item.id} type="fixed" position={item.pos as any}>
+                  {/* Trunk */}
+                  <mesh position={[0, item.height/2, 0]} castShadow>
+                     <cylinderGeometry args={[0.3, 0.6, item.height, 8]} />
+                     <meshStandardMaterial color="#8b5a2b" roughness={0.9} />
+                  </mesh>
+                  {/* Palm Leaves Base */}
+                  <mesh position={[0, item.height, 0]}>
+                     <sphereGeometry args={[0.8, 8, 8]} />
+                     <meshStandardMaterial color="#22c55e" roughness={1} />
+                  </mesh>
+                  {/* Canopy (star shape approximation) */}
+                  <mesh position={[0, item.height + 0.5, 0]} rotation={[Math.PI/2, 0, 0]} castShadow>
+                     <cylinderGeometry args={[3, 0.1, 0.2, 5]} />
+                     <meshStandardMaterial color="#16a34a" />
+                  </mesh>
+               </RigidBody>
+             );
 
-          case 'rock':
-            return (
-              <RigidBody key={item.id} type="fixed" position={item.pos as any}>
-                <mesh castShadow receiveShadow position={[0, item.scale/2, 0]} scale={item.scale}>
-                  <dodecahedronGeometry args={[1, 0]} />
-                  <meshStandardMaterial color="#78716c" roughness={0.8} />
-                </mesh>
-              </RigidBody>
-            );
+          case 'broadleaf':
+             return (
+               <RigidBody key={item.id} type="fixed" position={item.pos as any}>
+                  <mesh position={[0, item.height/2, 0]} castShadow>
+                     <cylinderGeometry args={[0.5, 0.8, item.height, 8]} />
+                     <meshStandardMaterial color="#5c4033" />
+                  </mesh>
+                  {/* Multiple rounded foliage clumps */}
+                  <mesh position={[0, item.height, 0]} castShadow>
+                     <dodecahedronGeometry args={[2.5, 1]} />
+                     <meshStandardMaterial color="#15803d" roughness={0.9} />
+                  </mesh>
+                  <mesh position={[1.5, item.height - 1, 1]} castShadow>
+                     <dodecahedronGeometry args={[1.8, 1]} />
+                     <meshStandardMaterial color="#16a34a" />
+                  </mesh>
+                  <mesh position={[-1.2, item.height - 0.5, -1.2]} castShadow>
+                     <dodecahedronGeometry args={[2, 1]} />
+                     <meshStandardMaterial color="#15803d" />
+                  </mesh>
+               </RigidBody>
+             );
 
-          case 'skyscraper':
-            return (
-              <RigidBody key={item.id} type="fixed" position={item.pos as any}>
-                <mesh castShadow receiveShadow>
-                  <boxGeometry args={item.args as any} />
-                  <meshStandardMaterial color="#1e293b" roughness={0.2} metalness={0.8} emissive={themeColor} emissiveIntensity={0.2} />
-                  {/* Glowing edges via box helper or a glowing inner box */}
-                </mesh>
-                {/* Glowing neon top */}
-                <mesh position={[0, (item.args[1] / 2) + 0.1, 0]}>
-                  <boxGeometry args={[item.args[0]*0.8, 0.2, item.args[2]*0.8]} />
-                  <meshStandardMaterial color={themeColor} emissive={themeColor} emissiveIntensity={2} />
-                </mesh>
-              </RigidBody>
-            );
+          case 'luxury-house':
+             return (
+               <RigidBody key={item.id} type="fixed" position={item.pos as any}>
+                  <mesh castShadow receiveShadow>
+                     <boxGeometry args={[15, 6, 10]} />
+                     <meshStandardMaterial color="#f8fafc" roughness={0.2} />
+                  </mesh>
+                  {/* Roof */}
+                  <mesh position={[0, 3.2, 0]} castShadow>
+                     <boxGeometry args={[16, 0.5, 11]} />
+                     <meshStandardMaterial color="#1e293b" />
+                  </mesh>
+                  {/* Giant glass window */}
+                  <mesh position={[0, 0, 5.1]}>
+                     <planeGeometry args={[10, 4]} />
+                     <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.9} />
+                  </mesh>
+               </RigidBody>
+             );
 
-          case 'city-building':
-            return (
-              <RigidBody key={item.id} type="fixed" position={item.pos as any}>
-                <mesh castShadow receiveShadow>
-                  <boxGeometry args={item.args as any} />
-                  <meshStandardMaterial color="#94a3b8" roughness={0.5} />
-                </mesh>
-                {/* Glass facade plane */}
-                <mesh position={[0, 0, (item.args[2]/2) + 0.01]}>
-                  <planeGeometry args={[item.args[0]*0.9, item.args[1]*0.9]} />
-                  <meshStandardMaterial color="#bae6fd" roughness={0.1} metalness={0.9} />
-                </mesh>
-              </RigidBody>
-            );
-
-          case 'fantasy-tree':
-            return (
-              <RigidBody key={item.id} type="fixed" position={item.pos as any}>
-                {/* Trunk */}
-                <mesh position={[0, item.height/2, 0]} castShadow>
-                  <cylinderGeometry args={[0.5, 0.8, item.height]} />
-                  <meshStandardMaterial color="#451a03" />
-                </mesh>
-                {/* Mystical huge spherical leaves */}
-                <mesh position={[0, item.height + 2, 0]} castShadow>
-                  <dodecahedronGeometry args={[4, 1]} />
-                  <meshStandardMaterial color="#a21caf" emissive="#c026d3" emissiveIntensity={0.2} roughness={1} />
-                </mesh>
-              </RigidBody>
-            );
-
-          case 'crystal':
-            return (
-              <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders="hull">
-                <mesh castShadow receiveShadow position={[0, item.scale, 0]} scale={[item.scale*0.5, item.scale, item.scale*0.5]}>
-                  <octahedronGeometry args={[1, 0]} />
-                  <meshStandardMaterial color={themeColor} emissive={themeColor} emissiveIntensity={0.8} opacity={0.8} transparent />
-                </mesh>
-              </RigidBody>
-            );
-
-          case 'default-tree': // The old tree we used to have inside WorldSpawner
-          default:
-            return (
-              <RigidBody key={item.id} type="fixed" position={item.pos as any}>
-                <mesh position={[0, 2, 0]} castShadow>
-                  <boxGeometry args={[1, 4, 1]} />
-                  <meshStandardMaterial color="#5E4028" />
-                </mesh>
-                <mesh position={[0, 5, 0]} castShadow>
-                  <boxGeometry args={[4, 4, 4]} />
-                  <meshStandardMaterial color="#2E8B57" />
-                </mesh>
-              </RigidBody>
-            );
+          case 'car':
+             return (
+                <RigidBody key={item.id} type="fixed" position={item.pos as any} rotation={item.rotation as any}>
+                   {/* Chassis */}
+                   <mesh position={[0, 1, 0]} castShadow>
+                     <boxGeometry args={[2, 0.8, 4.5]} />
+                     <meshStandardMaterial color="#0f172a" roughness={0.2} metalness={0.8} />
+                   </mesh>
+                   {/* Cabin */}
+                   <mesh position={[0, 1.7, -0.2]} castShadow>
+                     <boxGeometry args={[1.8, 0.8, 2]} />
+                     <meshStandardMaterial color="#000000" roughness={0.1} metalness={1} />
+                   </mesh>
+                   {/* Wheels */}
+                   {[[-1, 0.5, 1.5], [1, 0.5, 1.5], [-1, 0.5, -1.5], [1, 0.5, -1.5]].map((wheelPos, wi) => (
+                      <mesh key={wi} position={wheelPos as any} rotation={[0, 0, Math.PI/2]} castShadow>
+                         <cylinderGeometry args={[0.5, 0.5, 0.4, 16]} />
+                         <meshStandardMaterial color="#1f2937" roughness={0.9} />
+                      </mesh>
+                   ))}
+                </RigidBody>
+             );
         }
       })}
     </>

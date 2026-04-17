@@ -83,6 +83,7 @@ export default function WorldSpawner() {
   const [showBoss, setShowBoss] = useState(false);
   const [bossResult, setBossResult] = useState<'idle' | 'won' | 'lost'>('idle');
   const [showIntro, setShowIntro] = useState(true);
+  const [gender, setGender] = useState<'male' | 'female'>('male');
 
   // Load config
   useEffect(() => {
@@ -162,7 +163,7 @@ export default function WorldSpawner() {
         <StartInstructions 
           title={config.worldMeta?.title || 'Unknown World'} 
           nodeCount={cNodes.length}
-          onStart={() => setShowIntro(false)} 
+          onStart={(g) => { setGender(g as any); setShowIntro(false); }} 
         />
       )}
 
@@ -245,16 +246,13 @@ export default function WorldSpawner() {
       )}
 
       {/* ── 3D Canvas ── */}
-      <Canvas shadows>
-        {/* Realistic Lighting & Shadows over old flat grids */}
-        <SoftShadows size={25} samples={10} focus={0.5} />
-        
+      <Canvas>
         {/* Environment map for realistic PBR reflections instead of plastic flat lighting */}
         <Environment preset={config.worldMeta?.sky === 'Night' ? 'night' : 'sunset'} />
         
         <Sky sunPosition={config.worldMeta?.sky === 'Night' ? [0, -100, 0] : [100, 20, 100]} />
         <ambientLight intensity={0.2} />
-        <directionalLight castShadow position={[-50, 50, -50]} intensity={1.5} color={config.worldMeta?.themeColor || '#ffffff'} shadow-mapSize={[2048, 2048]}>
+        <directionalLight position={[-50, 50, -50]} intensity={1.5} color={config.worldMeta?.themeColor || '#ffffff'}>
           <orthographicCamera attach="shadow-camera" args={[-100, 100, 100, -100]} />
         </directionalLight>
         
@@ -271,7 +269,7 @@ export default function WorldSpawner() {
             <CuboidCollider position={[0, -1, 0]} args={[500, 1, 500]} />
             
             {/* Base underground dirt (for visual depth if they fall off the edge) */}
-            <mesh position={[0, -5, 0]} receiveShadow>
+            <mesh position={[0, -5, 0]}>
               <boxGeometry args={[1000, 6, 1000]} />
               <meshStandardMaterial color="#78350f" /> 
             </mesh>
@@ -295,7 +293,7 @@ export default function WorldSpawner() {
           ))}
 
           {/* The Player Avatar */}
-          <AvatarPlayer />
+          <AvatarPlayer gender={gender} />
         </Physics>
       </Canvas>
     </div>

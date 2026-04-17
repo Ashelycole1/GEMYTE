@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Compass } from 'lucide-react';
+import { Compass, User } from 'lucide-react';
 
 interface StartInstructionsProps {
   title: string;
-  onStart: () => void;
+  onStart: (gender: 'male' | 'female') => void;
   nodeCount: number;
 }
 
 export default function StartInstructions({ title, onStart, nodeCount }: StartInstructionsProps) {
   const [mounted, setMounted] = useState(false);
+  const [gender, setGender] = useState<'male' | 'female'>('male');
 
   useEffect(() => {
     setMounted(true);
@@ -41,10 +42,27 @@ export default function StartInstructions({ title, onStart, nodeCount }: StartIn
             <div className="border-l-4 border-white pl-4 py-2 opacity-100 transition-opacity pr-4">
               <div className="text-white font-bold tracking-widest uppercase text-xs md:text-sm break-words">{title}</div>
             </div>
-            <div className="border-l-4 border-transparent pl-4 py-2 opacity-30 hover:opacity-100 transition-opacity cursor-pointer text-xs md:text-sm">
-              <div className="text-white font-bold tracking-widest uppercase truncate">RECORDS [LOCKED]</div>
+            
+            {/* CHARACTER SELECTOR */}
+            <div className="mt-8 border-l-4 border-indigo-500 pl-4 py-2 opacity-100 pr-4">
+               <div className="text-indigo-400 font-bold tracking-widest uppercase text-[10px] mb-3">SELECT CHARACTER</div>
+               <div className="flex gap-4">
+                  <button 
+                    onClick={() => setGender('male')}
+                    className={`flex items-center gap-2 px-4 py-2 border ${gender === 'male' ? 'border-indigo-400 bg-indigo-500/20 text-white' : 'border-white/20 text-white/50 hover:text-white'} transition-all`}
+                  >
+                    <User className="w-4 h-4" /> GUY
+                  </button>
+                  <button 
+                    onClick={() => setGender('female')}
+                    className={`flex items-center gap-2 px-4 py-2 border ${gender === 'female' ? 'border-pink-400 bg-pink-500/20 text-white' : 'border-white/20 text-white/50 hover:text-white'} transition-all`}
+                  >
+                    <User className="w-4 h-4" /> GIRL
+                  </button>
+               </div>
             </div>
-            <div className="border-l-4 border-transparent pl-4 py-2 opacity-30 hover:opacity-100 transition-opacity cursor-pointer text-xs md:text-sm">
+
+            <div className="border-l-4 border-transparent pl-4 py-2 opacity-30 hover:opacity-100 transition-opacity cursor-pointer text-xs md:text-sm mt-4">
               <div className="text-white font-bold tracking-widest uppercase">ABANDON PROTOCOL</div>
             </div>
           </div>
@@ -59,7 +77,7 @@ export default function StartInstructions({ title, onStart, nodeCount }: StartIn
             style={{
               backgroundColor: 'rgba(0,0,0,0.1)',
               boxShadow: 'inset 0 0 60px rgba(0,0,0,1)',
-              backdropFilter: 'blur(2px)' // Slight blur for that "painting" feel
+              backdropFilter: 'blur(2px)'
             }}
           >
             <div className="absolute inset-0 border border-white/10 m-2 mix-blend-overlay"></div>
@@ -99,15 +117,10 @@ export default function StartInstructions({ title, onStart, nodeCount }: StartIn
       {/* BOTTOM RIGHT BUTTONS */}
       <div className="absolute bottom-8 right-8 md:bottom-12 md:right-16 flex gap-6 sm:gap-10 pointer-events-auto">
         <button 
-          onClick={onStart} 
+          onClick={() => onStart(gender)} 
           className="text-white/60 hover:text-white font-bold tracking-[0.2em] uppercase text-xs sm:text-sm transition-all border-b-2 border-transparent hover:border-white pb-1 group flex items-center gap-2"
         >
-          Confirm
-        </button>
-        <button 
-          className="text-white/40 hover:text-white font-bold tracking-[0.2em] uppercase text-xs sm:text-sm transition-all border-b-2 border-transparent hover:border-white pb-1"
-        >
-          Back
+          Assemble & Start
         </button>
       </div>
 
