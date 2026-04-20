@@ -2,7 +2,8 @@ import {
   Atom, FlaskConical, Dna, Globe, 
   Code2, Bot, Shield, Database, 
   Settings, Building, FunctionSquare, Infinity,
-  ArrowLeft
+  ArrowLeft,
+  Eye, Hash, Calculator, Activity, Link
 } from 'lucide-react';
 import React from 'react';
 
@@ -14,31 +15,47 @@ interface Discipline {
   iconColorClass: string;
 }
 
-const DISCIPLINES: Discipline[] = [
-  { id: 'physics', title: 'Physics', category: 'SCIENCE', icon: Atom, iconColorClass: 'text-emerald-400' },
-  { id: 'chemistry', title: 'Chemistry', category: 'SCIENCE', icon: FlaskConical, iconColorClass: 'text-cyan-400' },
-  { id: 'biology', title: 'Biology', category: 'SCIENCE', icon: Dna, iconColorClass: 'text-pink-400' },
-  { id: 'earth_science', title: 'Earth Science', category: 'SCIENCE', icon: Globe, iconColorClass: 'text-sky-400' },
-  
-  { id: 'programming', title: 'Programming', category: 'TECHNOLOGY', icon: Code2, iconColorClass: 'text-purple-400' },
-  { id: 'ai_ml', title: 'AI & ML', category: 'TECHNOLOGY', icon: Bot, iconColorClass: 'text-violet-500' },
-  { id: 'cybersecurity', title: 'Cybersecurity', category: 'TECHNOLOGY', icon: Shield, iconColorClass: 'text-indigo-400' },
-  { id: 'data_science', title: 'Data Science', category: 'TECHNOLOGY', icon: Database, iconColorClass: 'text-fuchsia-400' },
-  
-  { id: 'mech_eng', title: 'Mechanical Eng.', category: 'ENGINEERING', icon: Settings, iconColorClass: 'text-orange-400' },
-  { id: 'civil_eng', title: 'Civil Eng.', category: 'ENGINEERING', icon: Building, iconColorClass: 'text-amber-500' },
-  { id: 'algebra', title: 'Algebra', category: 'MATH', icon: FunctionSquare, iconColorClass: 'text-emerald-500' },
-  { id: 'calculus', title: 'Calculus', category: 'MATH', icon: Infinity, iconColorClass: 'text-green-400' },
-];
+const SUBJECTS_BY_LEVEL: Record<string, Discipline[]> = {
+  kindergarten: [
+    { id: 'observation', title: 'Observation', category: 'NATURE', icon: Eye, iconColorClass: 'text-emerald-400' },
+    { id: 'counting', title: 'Counting', category: 'MATH', icon: Hash, iconColorClass: 'text-sky-400' },
+  ],
+  elementary: [
+    { id: 'multiplication', title: 'Multiplication', category: 'MATH', icon: Calculator, iconColorClass: 'text-emerald-400' },
+    { id: 'anatomy', title: 'Anatomy', category: 'SCIENCE', icon: Activity, iconColorClass: 'text-pink-400' },
+  ],
+  middle: [
+    { id: 'pre_algebra', title: 'Pre-Algebra', category: 'MATH', icon: FunctionSquare, iconColorClass: 'text-emerald-500' },
+    { id: 'earth_science', title: 'Earth Science', category: 'SCIENCE', icon: Globe, iconColorClass: 'text-sky-400' },
+  ],
+  high: [
+    { id: 'calculus', title: 'Calculus', category: 'MATH', icon: Infinity, iconColorClass: 'text-green-400' },
+    { id: 'physics', title: 'Physics', category: 'SCIENCE', icon: Atom, iconColorClass: 'text-emerald-400' },
+    { id: 'coding', title: 'Coding', category: 'TECHNOLOGY', icon: Code2, iconColorClass: 'text-purple-400' },
+  ],
+  college: [
+    { id: 'ai', title: 'AI', category: 'TECHNOLOGY', icon: Bot, iconColorClass: 'text-violet-500' },
+    { id: 'blockchain', title: 'Blockchain', category: 'TECHNOLOGY', icon: Link, iconColorClass: 'text-cyan-400' },
+    { id: 'quantum_physics', title: 'Quantum Physics', category: 'SCIENCE', icon: Atom, iconColorClass: 'text-emerald-400' },
+  ],
+  default: [
+    { id: 'physics', title: 'Physics', category: 'SCIENCE', icon: Atom, iconColorClass: 'text-emerald-400' },
+    { id: 'chemistry', title: 'Chemistry', category: 'SCIENCE', icon: FlaskConical, iconColorClass: 'text-cyan-400' },
+    { id: 'biology', title: 'Biology', category: 'SCIENCE', icon: Dna, iconColorClass: 'text-pink-400' },
+    { id: 'earth_science', title: 'Earth Science', category: 'SCIENCE', icon: Globe, iconColorClass: 'text-sky-400' },
+  ]
+};
 
 interface DisciplineSelectProps {
+  selectedLevel: string;
   onBack: () => void;
   onEnterHub: () => void;
   selectedIds: string[];
   toggleDiscipline: (id: string) => void;
 }
 
-export default function DisciplineSelect({ onBack, onEnterHub, selectedIds, toggleDiscipline }: DisciplineSelectProps) {
+export default function DisciplineSelect({ selectedLevel, onBack, onEnterHub, selectedIds, toggleDiscipline }: DisciplineSelectProps) {
+  const disciplines = SUBJECTS_BY_LEVEL[selectedLevel] || SUBJECTS_BY_LEVEL.default;
   return (
     <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 z-20 pointer-events-auto fade-in-up flex flex-col items-center pb-20">
       
@@ -50,7 +67,7 @@ export default function DisciplineSelect({ onBack, onEnterHub, selectedIds, togg
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-10">
-        {DISCIPLINES.map(disp => {
+        {disciplines.map(disp => {
           const isSelected = selectedIds.includes(disp.id);
           const Icon: any = disp.icon;
           return (

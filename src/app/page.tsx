@@ -202,6 +202,7 @@ export default function Home() {
           <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm overflow-y-auto pointer-events-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
             <div className="min-h-full flex flex-col justify-center items-center py-20 px-4">
               <DisciplineSelect 
+                selectedLevel={selectedLevel!}
                 selectedIds={selectedDisciplines}
                 toggleDiscipline={(id) => {
                   setSelectedDisciplines(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
