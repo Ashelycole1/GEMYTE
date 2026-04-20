@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RigidBody, RapierRigidBody, CapsuleCollider } from '@react-three/rapier';
 import * as THREE from 'three';
