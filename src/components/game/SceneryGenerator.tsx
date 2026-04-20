@@ -121,10 +121,12 @@ export default function SceneryGenerator({ environmentType, themeColor }: Scener
     <>
       <fog attach="fog" args={[fogColor, 40, 450]} />
 
-      {/* Realistic Terrain Visuals (Removed Rapier trimesh to prevent WASM GPU crash) */}
-      <mesh receiveShadow geometry={terrainGeom}>
-          <meshStandardMaterial vertexColors roughness={0.9} />
-      </mesh>
+      {/* Realistic Terrain with Trimesh Collision natively tracking hills */}
+      <RigidBody type="fixed" colliders="trimesh" friction={1.5}>
+        <mesh receiveShadow geometry={terrainGeom}>
+            <meshStandardMaterial vertexColors roughness={0.9} />
+        </mesh>
+      </RigidBody>
 
       {/* Underlying dirt plane if camera falls below terrain */}
       <mesh position={[0,-20,0]} rotation={[-Math.PI/2,0,0]}>

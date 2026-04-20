@@ -12,6 +12,26 @@ export default function AvatarPlayer({ gender = 'male' }: { gender?: 'male'|'fem
   const rightLegRef = useRef<THREE.Group>(null);
   const groupRef = useRef<THREE.Group>(null);
 
+  // Load realistic textures safely without suspending Canvas
+  const [shirtTex, setShirtTex] = useState<THREE.Texture | null>(null);
+  const [jeansTex, setJeansTex] = useState<THREE.Texture | null>(null);
+
+  useMemo(() => {
+    if (typeof window !== 'undefined') {
+      const loader = new THREE.TextureLoader();
+      loader.load('/textures/shirt.png', (tex) => {
+         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+         tex.repeat.set(2, 2);
+         setShirtTex(tex);
+      });
+      loader.load('/textures/jeans.png', (tex) => {
+         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+         tex.repeat.set(3, 3);
+         setJeansTex(tex);
+      });
+    }
+  }, []);
+
   // Generate face
   const faceTexture = useMemo(() => {
     if (typeof document === 'undefined') return null;
@@ -140,14 +160,18 @@ export default function AvatarPlayer({ gender = 'male' }: { gender?: 'male'|'fem
         {/* Torso (Rounded Capsule) */}
         <mesh position={[0, 1.1, 0]}>
           <capsuleGeometry args={[gender === 'male' ? 0.35 : 0.28, 0.5, 16, 32]} />
-          <meshStandardMaterial color={shirtColor} roughness={0.8} />
+          {shirtTex ? (
+              <meshStandardMaterial map={shirtTex} color={shirtColor} roughness={0.9} />
+          ) : (
+              <meshStandardMaterial color={shirtColor} roughness={0.8} />
+          )}
         </mesh>
 
         {/* Left Arm */}
         <group ref={leftArmRef} position={[gender === 'male' ? 0.45 : 0.35, 1.4, 0]}>
           <mesh position={[0, -0.3, 0]}>
             <capsuleGeometry args={[0.12, 0.5, 16, 16]} />
-            <meshStandardMaterial color={shirtColor} />
+            {shirtTex ? <meshStandardMaterial map={shirtTex} color={shirtColor} /> : <meshStandardMaterial color={shirtColor} />}
           </mesh>
           <mesh position={[0, -0.7, 0]}>
             <sphereGeometry args={[0.14, 16, 16]} />
@@ -159,7 +183,7 @@ export default function AvatarPlayer({ gender = 'male' }: { gender?: 'male'|'fem
         <group ref={rightArmRef} position={[gender === 'male' ? -0.45 : -0.35, 1.4, 0]}>
           <mesh position={[0, -0.3, 0]}>
             <capsuleGeometry args={[0.12, 0.5, 16, 16]} />
-            <meshStandardMaterial color={shirtColor} />
+            {shirtTex ? <meshStandardMaterial map={shirtTex} color={shirtColor} /> : <meshStandardMaterial color={shirtColor} />}
           </mesh>
           <mesh position={[0, -0.7, 0]}>
             <sphereGeometry args={[0.14, 16, 16]} />
@@ -171,12 +195,12 @@ export default function AvatarPlayer({ gender = 'male' }: { gender?: 'male'|'fem
         <group ref={leftLegRef} position={[0.2, 0.7, 0]}>
           <mesh position={[0, -0.3, 0]}>
             <capsuleGeometry args={[0.15, 0.5, 16, 16]} />
-            <meshStandardMaterial color={pantsColor} />
+            {jeansTex ? <meshStandardMaterial map={jeansTex} color={gender === 'female' ? '#6366f1' : '#ffffff'} roughness={1} /> : <meshStandardMaterial color={pantsColor} />}
           </mesh>
           {/* Shoe */}
           <mesh position={[0, -0.7, 0.05]}>
             <boxGeometry args={[0.2, 0.15, 0.3]} />
-            <meshStandardMaterial color="#000000" />
+            <meshStandardMaterial color="#171717" roughness={0.8} />
           </mesh>
         </group>
 
@@ -184,11 +208,11 @@ export default function AvatarPlayer({ gender = 'male' }: { gender?: 'male'|'fem
         <group ref={rightLegRef} position={[-0.2, 0.7, 0]}>
           <mesh position={[0, -0.3, 0]}>
             <capsuleGeometry args={[0.15, 0.5, 16, 16]} />
-            <meshStandardMaterial color={pantsColor} />
+            {jeansTex ? <meshStandardMaterial map={jeansTex} color={gender === 'female' ? '#6366f1' : '#ffffff'} roughness={1} /> : <meshStandardMaterial color={pantsColor} />}
           </mesh>
           <mesh position={[0, -0.7, 0.05]}>
             <boxGeometry args={[0.2, 0.15, 0.3]} />
-            <meshStandardMaterial color="#000000" />
+            <meshStandardMaterial color="#171717" roughness={0.8} />
           </mesh>
         </group>
 
