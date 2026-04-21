@@ -191,7 +191,8 @@ export default function Home() {
                 onSelect={(id) => {
                   setSelectedLevel(id);
                   setWorkflowStep('discipline');
-                }} 
+                }}
+                onBack={() => setWorkflowStep('hero')} 
               />
             </div>
           </div>

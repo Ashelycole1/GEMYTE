@@ -1,4 +1,4 @@
-import { Star, Sprout, Atom, FlaskConical, GraduationCap } from 'lucide-react';
+import { Star, Sprout, Atom, FlaskConical, GraduationCap, ArrowLeft } from 'lucide-react';
 
 interface LevelOption {
   id: string;
@@ -17,18 +17,27 @@ const LEVEL_OPTIONS: LevelOption[] = [
   { id: 'college', title: 'College', subtitle: 'Ages 18+', icon: GraduationCap, iconColorClass: 'text-purple-400', bgColorClass: 'bg-purple-400/10' },
 ];
 
-export default function LevelSelect({ onSelect, selectedId }: { onSelect: (id: string) => void, selectedId?: string | null }) {
+export default function LevelSelect({ onSelect, selectedId, onBack }: { onSelect: (id: string) => void, selectedId?: string | null, onBack?: () => void }) {
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 z-20 pointer-events-auto fade-in-up flex flex-col items-center">
+    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 z-20 pointer-events-auto fade-in-up flex flex-col items-center">
       
-      <div className="text-center mb-10">
-        <h2 className="font-black text-white text-3xl sm:text-4xl md:text-5xl tracking-wide uppercase mb-3 flex flex-wrap justify-center items-center font-mono">
+      <div className="text-center mb-10 w-full relative">
+        {onBack && (
+          <button 
+            onClick={onBack}
+            className="absolute left-0 top-1/2 -translate-y-1/2 sm:-top-8 sm:translate-y-0 text-slate-400 hover:text-white transition-colors flex items-center gap-2 font-medium"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="hidden sm:inline">Back to Hub</span>
+          </button>
+        )}
+        <h2 className="font-black text-white text-3xl sm:text-4xl md:text-5xl tracking-wide uppercase mb-3 flex flex-wrap justify-center items-center font-mono pt-12 sm:pt-0">
           Select Your Level of Study
         </h2>
         <p className="text-slate-400 text-sm sm:text-base font-medium">Choose the memory stream that matches your cognitive tier</p>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-4 md:gap-6 lg:gap-8 max-w-3xl">
+      <div className="flex flex-nowrap w-full justify-start xl:justify-center overflow-x-auto scrollbar-hide gap-4 md:gap-6 lg:gap-8 pb-8 px-4 snap-x snap-mandatory scroll-smooth">
         {LEVEL_OPTIONS.map(opt => {
           const isSelected = selectedId === opt.id;
           const Icon: any = opt.icon;
@@ -36,7 +45,7 @@ export default function LevelSelect({ onSelect, selectedId }: { onSelect: (id: s
             <button
               key={opt.id}
               onClick={() => onSelect(opt.id)}
-              className={`group flex  flex-col items-center justify-center relative rounded-2xl w-40 sm:w-48 aspect-square transition-all duration-300 border ${
+              className={`group flex-shrink-0 snap-center flex flex-col items-center justify-center relative rounded-2xl w-40 sm:w-48 aspect-square transition-all duration-300 border ${
                 isSelected 
                   ? 'border-[#0ea5e9] bg-white/[0.04]' 
                   : 'border-white/5 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
