@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { useGemyteEngine } from "@/hooks/useGemyteEngine";
 import LevelSelect from "@/components/Onboarding/LevelSelect";
 import DisciplineSelect from "@/components/Onboarding/DisciplineSelect";
+import SystemOverview from "@/components/SystemOverview";
 
 export default function Home() {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -224,7 +225,8 @@ export default function Home() {
               <UploadForm onClose={() => setWorkflowStep('hero')} mobile engine={engine} />
             </div>
             {/* Desktop: floating panel right */}
-            <div className="pointer-events-auto hidden sm:block absolute right-6 lg:right-10 top-1/2 -translate-y-1/2 z-30 fade-in-up">
+            <div className="pointer-events-auto hidden lg:flex absolute right-6 lg:right-10 top-1/2 -translate-y-1/2 z-30 fade-in-up gap-[100px] items-center">
+              <SystemOverview />
               <UploadForm onClose={() => setWorkflowStep('hero')} engine={engine} />
             </div>
           </>
