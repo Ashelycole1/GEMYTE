@@ -138,6 +138,8 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
     return (
       <group>
         <fog attach="fog" args={['#87CEEB', 20, 80]} />
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[50, 50, 50]} intensity={1.5} castShadow />
         <RigidBody type="fixed" friction={1}>
            {/* Invisible floor safety net */}
            <mesh position={[0,-10,0]}><boxGeometry args={[200,1,200]}/><meshBasicMaterial visible={false}/></mesh>
