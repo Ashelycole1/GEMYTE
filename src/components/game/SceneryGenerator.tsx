@@ -23,7 +23,8 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
       for (let x = -10; x <= 10; x += 2) {
         
         const isTrack = x >= -6 && x <= 6;
-        let yBase = isTrack ? 0 : Math.floor(noise2D(x/15, z/15) * 2) * 2 + 2;
+        // Shift yBase down by 1 so a [2,2,2] block's top is exactly at y=0 (matches physics floor)
+        let yBase = isTrack ? -1 : Math.floor(noise2D(x/15, z/15) * 2) * 2 + 1;
 
         // Surface
         blocks.push({ pos: [x, yBase, z], type: 'grass' });
