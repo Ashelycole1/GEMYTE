@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { RigidBody, RapierRigidBody, CapsuleCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { inputStore } from './useControls';
+import { sfx } from '../../utils/audio';
 
 export default function AvatarPlayer({ gender = 'male', isPaused = false }: { gender?: 'male'|'female', isPaused?: boolean }) {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
@@ -12,66 +13,28 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
   const rightLegRef = useRef<THREE.Group>(null);
   const groupRef = useRef<THREE.Group>(null);
 
-  // Load realistic textures safely without suspending Canvas
-  const [shirtTex, setShirtTex] = useState<THREE.Texture | null>(null);
-  const [jeansTex, setJeansTex] = useState<THREE.Texture | null>(null);
-
   // Runner Mechanics State
   const laneRef = useRef(0); // -1 (left), 0 (center), 1 (right)
   const [targetX, setTargetX] = useState(0);
-  const jumpForce = 15;
-  const forwardSpeed = 25; // Constant forward speed
+  const jumpForce = 16;
+  const forwardSpeed = 30; // High speed
   const laneWidth = 4;
   
   // Track previous inputs to detect taps
   const prevInputRef = useRef({ left: false, right: false, jump: false });
+  const isSlidingRef = useRef(false);
+  const slideTimerRef = useRef(0);
 
-  useMemo(() => {
-    if (typeof window !== 'undefined') {
-      const loader = new THREE.TextureLoader();
-      loader.load('/textures/shirt.png', (tex) => {
-         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-         tex.repeat.set(2, 2);
-         setShirtTex(tex);
-      });
-      loader.load('/textures/jeans.png', (tex) => {
-         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-         tex.repeat.set(3, 3);
-         setJeansTex(tex);
-      });
-    }
+  // Initialize Audio
+  useEffect(() => {
+    const handleInit = () => sfx.init();
+    window.addEventListener('keydown', handleInit, { once: true });
+    window.addEventListener('pointerdown', handleInit, { once: true });
+    return () => {
+      window.removeEventListener('keydown', handleInit);
+      window.removeEventListener('pointerdown', handleInit);
+    };
   }, []);
-
-  // Generate face
-  const faceTexture = useMemo(() => {
-    if (typeof document === 'undefined') return null;
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = '#ffedd5'; // skin color
-      ctx.fillRect(0, 0, 128, 128);
-      
-      // Eyes
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath(); ctx.arc(40, 60, 6, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(88, 60, 6, 0, Math.PI * 2); ctx.fill();
-      
-      if (gender === 'female') {
-          ctx.fillStyle = '#ec4899';
-          ctx.beginPath(); ctx.arc(64, 85, 8, 0, Math.PI, false); ctx.fill();
-          ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(34, 55); ctx.lineTo(25, 45); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(94, 55); ctx.lineTo(103, 45); ctx.stroke();
-      } else {
-          ctx.lineWidth = 4;
-          ctx.beginPath(); ctx.arc(64, 80, 12, 0, Math.PI, false); ctx.stroke();
-      }
-    }
-    const texture = new THREE.CanvasTexture(canvas);
-    return texture;
-  }, [gender]);
 
   const cameraPosition = useRef(new THREE.Vector3());
   const cameraTarget = useRef(new THREE.Vector3());
@@ -80,15 +43,15 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
     const rb = rigidBodyRef.current;
     if (!rb) return;
 
-    const { left, right, jump } = inputStore;
+    const { left, right, jump, backward } = inputStore;
     const prev = prevInputRef.current;
 
     // Detect taps for lane switching
-    if (left && !prev.left) {
+    if (left && !prev.left && !isPaused) {
         laneRef.current = Math.max(-1, laneRef.current - 1);
         setTargetX(laneRef.current * laneWidth);
     }
-    if (right && !prev.right) {
+    if (right && !prev.right && !isPaused) {
         laneRef.current = Math.min(1, laneRef.current + 1);
         setTargetX(laneRef.current * laneWidth);
     }
@@ -97,36 +60,66 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
     const linvel = rb.linvel();
 
     // Process Jump
-    if (jump && !prev.jump && Math.abs(linvel.y) < 0.1 && pos.y < 2) {
+    if (jump && !prev.jump && Math.abs(linvel.y) < 0.1 && pos.y < 2 && !isPaused) {
       rb.setLinvel({ x: linvel.x, y: jumpForce, z: linvel.z }, true);
+      sfx.playJump();
+    }
+
+    // Process Slide
+    if (backward && !isPaused) {
+       if (!isSlidingRef.current) {
+         isSlidingRef.current = true;
+         slideTimerRef.current = 1.0; // slide for 1 second
+         // Plunge downward instantly if in the air
+         if (pos.y > 1) {
+            rb.setLinvel({ x: linvel.x, y: -20, z: linvel.z }, true);
+         }
+       }
+    }
+
+    if (isSlidingRef.current) {
+       slideTimerRef.current -= delta;
+       if (slideTimerRef.current <= 0) {
+           isSlidingRef.current = false;
+       }
     }
 
     // Save inputs for next frame
     prevInputRef.current = { left, right, jump };
 
     // Apply Runner Velocities
-    // Snap X smoothly using velocity
     const diffX = targetX - pos.x;
     const velX = isPaused ? 0 : diffX * 15; // spring constant
     const currentSpeed = isPaused ? 0 : forwardSpeed;
 
-    rb.setLinvel({ x: velX, y: linvel.y, z: -currentSpeed }, true);
+    rb.setLinvel({ x: velX, y: rb.linvel().y, z: -currentSpeed }, true);
 
-    // Keep the avatar facing strictly forward
+    // Visual Updates
     if (groupRef.current) {
       groupRef.current.rotation.y = Math.PI; // Face negative Z
+
+      // Slide Animation
+      if (isSlidingRef.current) {
+         groupRef.current.scale.set(1, 0.4, 1);
+         groupRef.current.position.y = -0.5;
+         groupRef.current.rotation.x = Math.PI / 2;
+      } else {
+         groupRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), 10 * delta);
+         groupRef.current.position.lerp(new THREE.Vector3(0, 0, 0), 10 * delta);
+         groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, 0, 10 * delta);
+      }
     }
 
     // Running Animation
     const time = state.clock.getElapsedTime();
-    const swingFactor = isPaused ? 0 : Math.sin(time * 20) * 1.2; 
+    const swingFactor = (isPaused || isSlidingRef.current) ? 0 : Math.sin(time * 25) * 1.2; 
     
     if (leftArmRef.current) leftArmRef.current.rotation.x = THREE.MathUtils.lerp(leftArmRef.current.rotation.x, swingFactor, 0.5);
     if (rightArmRef.current) rightArmRef.current.rotation.x = THREE.MathUtils.lerp(rightArmRef.current.rotation.x, -swingFactor, 0.5);
     if (leftLegRef.current) leftLegRef.current.rotation.x = THREE.MathUtils.lerp(leftLegRef.current.rotation.x, -swingFactor, 0.5);
     if (rightLegRef.current) rightLegRef.current.rotation.x = THREE.MathUtils.lerp(rightLegRef.current.rotation.x, swingFactor, 0.5);
 
-    // Camera locks behind the player on the Z axis, but smoothly interpolates X to follow the lane subtly
+    // Camera locks behind the player on the Z axis
     const desiredPos = new THREE.Vector3(pos.x * 0.5, pos.y + 4, pos.z + 12);
     cameraPosition.current.lerp(desiredPos, 8 * delta);
     
@@ -137,68 +130,123 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
     state.camera.lookAt(cameraTarget.current);
   });
 
-  const shirtColor = gender === 'male' ? '#1e3a8a' : '#d946ef';
-  const pantsColor = gender === 'male' ? '#1e293b' : '#312e81';
-  const hairColor = gender === 'male' ? '#3f2c19' : '#171717';
+  const hoodieColor = gender === 'male' ? '#ef4444' : '#a855f7'; // Bright Red or Purple
+  const pantsColor = '#1e40af'; // Blue jeans
+  const skinColor = '#fcd34d'; // Stylized tan skin
+  const shoeColor = '#ffffff';
 
   return (
-    <RigidBody ref={rigidBodyRef} name="platform" colliders={false} mass={1} type="dynamic" position={[0, 10, 0]} lockRotations enabledRotations={[false, false, false]} friction={0}>
-      <CapsuleCollider args={[0.6, 0.4]} position={[0, 1, 0]} />
+    <RigidBody 
+       ref={rigidBodyRef} 
+       name="avatar" 
+       colliders={false} 
+       mass={1} 
+       type="dynamic" 
+       position={[0, 10, 0]} 
+       lockRotations 
+       enabledRotations={[false, false, false]} 
+       friction={0}
+       onCollisionEnter={(p) => {
+          if (p.other.rigidBodyObject?.name === 'obstacle') {
+              sfx.playCrash();
+              // Bounce back
+              if (rigidBodyRef.current) {
+                  rigidBodyRef.current.setLinvel({ x: 0, y: 10, z: 20 }, true);
+              }
+          }
+       }}
+    >
+      <CapsuleCollider args={[0.5, 0.4]} position={[0, 1, 0]} />
       
       <group ref={groupRef} position={[0, 0, 0]}>
-        {/* Head */}
-        <mesh position={[0, 1.8, 0]}>
-          <sphereGeometry args={[0.35, 32, 32]} />
-          {faceTexture ? <meshStandardMaterial map={faceTexture} roughness={0.6} /> : <meshStandardMaterial color="#ffedd5" />}
+        
+        {/* Head (Stylized Cartoon) */}
+        <mesh position={[0, 1.9, 0]}>
+          <boxGeometry args={[0.6, 0.6, 0.6]} />
+          <meshStandardMaterial color={skinColor} roughness={0.4} />
         </mesh>
-        {/* Hair */}
-        <mesh position={[0, 2.1, gender === 'female' ? -0.1 : 0]}>
-           {gender === 'female' ? <capsuleGeometry args={[0.37, 0.6, 16, 32]} /> : <sphereGeometry args={[0.36, 16, 16]} />}
-           <meshStandardMaterial color={hairColor} roughness={0.9} />
+        
+        {/* Baseball Cap */}
+        <mesh position={[0, 2.2, 0.1]}>
+           <boxGeometry args={[0.62, 0.2, 0.62]} />
+           <meshStandardMaterial color="#2563eb" roughness={0.7} />
         </mesh>
-        {/* Torso */}
+        <mesh position={[0, 2.2, -0.3]}>
+           <boxGeometry args={[0.62, 0.05, 0.4]} />
+           <meshStandardMaterial color="#2563eb" roughness={0.7} />
+        </mesh>
+
+        {/* Eyes/Goggles */}
+        <mesh position={[0.15, 1.95, -0.31]}>
+           <boxGeometry args={[0.15, 0.15, 0.05]} />
+           <meshStandardMaterial color="#1e293b" />
+        </mesh>
+        <mesh position={[-0.15, 1.95, -0.31]}>
+           <boxGeometry args={[0.15, 0.15, 0.05]} />
+           <meshStandardMaterial color="#1e293b" />
+        </mesh>
+
+        {/* Torso (Hoodie) */}
         <mesh position={[0, 1.1, 0]}>
-          <capsuleGeometry args={[gender === 'male' ? 0.35 : 0.28, 0.5, 16, 32]} />
-          {shirtTex ? <meshStandardMaterial map={shirtTex} color={shirtColor} roughness={0.9} /> : <meshStandardMaterial color={shirtColor} roughness={0.8} />}
+          <boxGeometry args={[0.7, 0.9, 0.5]} />
+          <meshStandardMaterial color={hoodieColor} roughness={0.8} />
         </mesh>
+
+        {/* Hoodie Pocket */}
+        <mesh position={[0, 0.9, -0.26]}>
+           <boxGeometry args={[0.4, 0.3, 0.05]} />
+           <meshStandardMaterial color={hoodieColor} roughness={0.9} />
+        </mesh>
+
         {/* Left Arm */}
-        <group ref={leftArmRef} position={[gender === 'male' ? 0.45 : 0.35, 1.4, 0]}>
+        <group ref={leftArmRef} position={[0.45, 1.4, 0]}>
           <mesh position={[0, -0.3, 0]}>
-            <capsuleGeometry args={[0.12, 0.5, 16, 16]} />
-            {shirtTex ? <meshStandardMaterial map={shirtTex} color={shirtColor} /> : <meshStandardMaterial color={shirtColor} />}
+            <boxGeometry args={[0.25, 0.6, 0.25]} />
+            <meshStandardMaterial color={skinColor} />
           </mesh>
-          <mesh position={[0, -0.7, 0]}>
-            <sphereGeometry args={[0.14, 16, 16]} />
-            <meshStandardMaterial color="#ffedd5" />
+          <mesh position={[0, 0, 0]}>
+            <boxGeometry args={[0.3, 0.3, 0.3]} />
+            <meshStandardMaterial color={hoodieColor} />
           </mesh>
         </group>
+
         {/* Right Arm */}
-        <group ref={rightArmRef} position={[gender === 'male' ? -0.45 : -0.35, 1.4, 0]}>
+        <group ref={rightArmRef} position={[-0.45, 1.4, 0]}>
           <mesh position={[0, -0.3, 0]}>
-            <capsuleGeometry args={[0.12, 0.5, 16, 16]} />
-            {shirtTex ? <meshStandardMaterial map={shirtTex} color={shirtColor} /> : <meshStandardMaterial color={shirtColor} />}
+             <boxGeometry args={[0.25, 0.6, 0.25]} />
+             <meshStandardMaterial color={skinColor} />
           </mesh>
-          <mesh position={[0, -0.7, 0]}>
-            <sphereGeometry args={[0.14, 16, 16]} />
-            <meshStandardMaterial color="#ffedd5" />
+          <mesh position={[0, 0, 0]}>
+            <boxGeometry args={[0.3, 0.3, 0.3]} />
+            <meshStandardMaterial color={hoodieColor} />
           </mesh>
         </group>
+
         {/* Left Leg */}
         <group ref={leftLegRef} position={[0.2, 0.7, 0]}>
-          <mesh position={[0, -0.3, 0]}>
-            <capsuleGeometry args={[0.15, 0.5, 16, 16]} />
-            {jeansTex ? <meshStandardMaterial map={jeansTex} color={gender === 'female' ? '#6366f1' : '#ffffff'} roughness={1} /> : <meshStandardMaterial color={pantsColor} />}
+          <mesh position={[0, -0.25, 0]}>
+            <boxGeometry args={[0.25, 0.5, 0.25]} />
+            <meshStandardMaterial color={pantsColor} roughness={1} />
           </mesh>
-          <mesh position={[0, -0.7, 0.05]}><boxGeometry args={[0.2, 0.15, 0.3]} /><meshStandardMaterial color="#171717" roughness={0.8} /></mesh>
+          {/* Big Cartoon Shoe */}
+          <mesh position={[0, -0.6, -0.1]}>
+            <boxGeometry args={[0.35, 0.25, 0.5]} />
+            <meshStandardMaterial color={shoeColor} roughness={0.5} />
+          </mesh>
         </group>
+
         {/* Right Leg */}
         <group ref={rightLegRef} position={[-0.2, 0.7, 0]}>
-          <mesh position={[0, -0.3, 0]}>
-            <capsuleGeometry args={[0.15, 0.5, 16, 16]} />
-            {jeansTex ? <meshStandardMaterial map={jeansTex} color={gender === 'female' ? '#6366f1' : '#ffffff'} roughness={1} /> : <meshStandardMaterial color={pantsColor} />}
+          <mesh position={[0, -0.25, 0]}>
+            <boxGeometry args={[0.25, 0.5, 0.25]} />
+            <meshStandardMaterial color={pantsColor} roughness={1} />
           </mesh>
-          <mesh position={[0, -0.7, 0.05]}><boxGeometry args={[0.2, 0.15, 0.3]} /><meshStandardMaterial color="#171717" roughness={0.8} /></mesh>
+          <mesh position={[0, -0.6, -0.1]}>
+            <boxGeometry args={[0.35, 0.25, 0.5]} />
+            <meshStandardMaterial color={shoeColor} roughness={0.5} />
+          </mesh>
         </group>
+
       </group>
     </RigidBody>
   );

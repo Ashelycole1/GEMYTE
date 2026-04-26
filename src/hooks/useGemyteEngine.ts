@@ -65,6 +65,7 @@ export function useGemyteEngine() {
   const [completedNodes, setCompletedNodes] = useState<string[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [coins, setCoins] = useState(0);
 
   // ── Generate level from text content ────────────────────────────────────
   const generateLevel = useCallback(async (text: string, orbId?: string) => {
@@ -144,6 +145,10 @@ export function useGemyteEngine() {
     });
   }, []);
 
+  const collectCoin = useCallback(() => {
+    setCoins(c => c + 1);
+  }, []);
+
   // ── Validate student answer ──────────────────────────────────────────────
   const validateAnswer = useCallback(async (
     answer: string,
@@ -189,6 +194,7 @@ export function useGemyteEngine() {
     error,
     questActive,
     score,
+    coins,
     timeLeft,
     completedNodes,
     themeColor: gameConfig.worldMeta.themeColor,
@@ -197,6 +203,7 @@ export function useGemyteEngine() {
     endQuest,
     validateAnswer,
     markNodeComplete,
+    collectCoin,
     resetEngine,
   };
 }

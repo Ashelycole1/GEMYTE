@@ -16,6 +16,7 @@ import { useIsMobile } from './game/useControls';
 import StartInstructions from './game/StartInstructions';
 import SceneryGenerator from './game/SceneryGenerator';
 import * as THREE from 'three';
+import { sfx } from '@/utils/audio';
 
 // ── Dimensional Portal Component ──
 function DimensionalPortal({ onEnter, position }: { onEnter: () => void, position: [number, number, number] }) {
@@ -441,10 +442,14 @@ export default function WorldSpawner() {
         {currentLevel === 2 && <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />}
         {currentLevel === 3 && <Environment preset="night" />}
         
-        <Physics gravity={[0, -20, 0]}>
+        <Physics gravity={[0, -30, 0]}>
           <SceneryGenerator 
             currentLevel={currentLevel} 
             themeColor={currentTheme} 
+            onCollectCoin={() => {
+               setCoins(c => c + 1);
+               sfx.playCoin();
+            }}
           />
 
           {/* Render Nodes for the current dimension */}
