@@ -1,41 +1,42 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { RigidBody } from '@react-three/rapier';
-import { Sparkles, useTexture, Float, Instances, Instance } from '@react-three/drei';
+import { Sparkles, Float, Instances, Instance } from '@react-three/drei';
 import * as THREE from 'three';
 import { createNoise2D } from 'simplex-noise';
 
 interface SceneryProps {
-  currentLevel: number; // 1 = Voxel, 2 = Urban, 3 = Ruins
+  currentLevel: number;
   themeColor: string;
 }
 
 export default function SceneryGenerator({ currentLevel, themeColor }: SceneryProps) {
   const noise2D = createNoise2D();
 
-  // ── LEVEL 1: THE VOXEL REALM (Minecraft) ──
+  // ── LEVEL 1: THE VOXEL TRACK ──
   const voxelData = useMemo(() => {
     if (currentLevel !== 1) return [];
     const blocks: { pos: [number, number, number], type: 'grass' | 'dirt' | 'wood' | 'leaves' }[] = [];
     
-    // Generate a massive chunky platform
-    for (let x = -100; x <= 100; x += 2) {
-      for (let z = -100; z <= 100; z += 2) {
-        let dist = Math.sqrt(x*x + z*z);
-        if (dist > 100) continue; // Make it a large circular island
+    // Generate a linear track from Z = 50 down to Z = -450
+    for (let z = 50; z >= -450; z -= 2) {
+      // Width of the playable track is x from -6 to 6
+      for (let x = -10; x <= 10; x += 2) {
+        
+        const isTrack = x >= -6 && x <= 6;
+        let yBase = isTrack ? 0 : Math.floor(noise2D(x/15, z/15) * 2) * 2 + 2;
 
-        let yBase = Math.floor(noise2D(x/25, z/25) * 3) * 2;
         // Surface
         blocks.push({ pos: [x, yBase, z], type: 'grass' });
-        // Underground (only need 1 or 2 layers for visual depth)
+        // Depth
         blocks.push({ pos: [x, yBase - 2, z], type: 'dirt' });
+        if (!isTrack) blocks.push({ pos: [x, yBase - 4, z], type: 'dirt' });
         
-        // Random trees
-        if (Math.random() > 0.98 && yBase >= 0 && dist > 15) {
+        // Random trees on the borders
+        if (!isTrack && Math.random() > 0.95 && yBase >= 0) {
           blocks.push({ pos: [x, yBase + 2, z], type: 'wood' });
           blocks.push({ pos: [x, yBase + 4, z], type: 'wood' });
           blocks.push({ pos: [x, yBase + 6, z], type: 'wood' });
           
-          // Canopy
           for (let tx = -2; tx <= 2; tx+=2) {
             for (let tz = -2; tz <= 2; tz+=2) {
                blocks.push({ pos: [x+tx, yBase+6, z+tz], type: 'leaves' });
@@ -48,46 +49,46 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
     return blocks;
   }, [currentLevel]);
 
-  // ── LEVEL 2: THE NEON GRID (Urban/GTA) ──
+  // ── LEVEL 2: THE NEON HIGHWAY ──
   const urbanData = useMemo(() => {
-    if (currentLevel !== 2) return { buildings: [], cars: [] };
+    if (currentLevel !== 2) return { buildings: [] };
     const buildings: { pos: [number, number, number], scale: [number, number, number], isNeon: boolean }[] = [];
-    const cars: { pos: [number, number, number], rotation: [number, number, number] }[] = [];
     
-    // City blocks
-    for (let i = 0; i < 60; i++) {
-       let x = (Math.random() - 0.5) * 160;
-       let z = (Math.random() - 0.5) * 160;
-       // Leave a crossroad open in the center
-       if (Math.abs(x) < 8 || Math.abs(z) < 8) continue; 
-       
-       let height = 10 + Math.random() * 50;
-       buildings.push({
-         pos: [x, height/2, z],
-         scale: [6 + Math.random()*6, height, 6 + Math.random()*6],
-         isNeon: Math.random() > 0.7
-       });
+    // Buildings on the side of the highway
+    for (let z = 50; z >= -450; z -= 20) {
+       // Left side
+       if (Math.random() > 0.3) {
+           let height = 20 + Math.random() * 60;
+           buildings.push({
+             pos: [-15 - Math.random() * 10, height/2, z + (Math.random() * 10 - 5)],
+             scale: [8 + Math.random()*6, height, 8 + Math.random()*6],
+             isNeon: Math.random() > 0.5
+           });
+       }
+       // Right side
+       if (Math.random() > 0.3) {
+           let height = 20 + Math.random() * 60;
+           buildings.push({
+             pos: [15 + Math.random() * 10, height/2, z + (Math.random() * 10 - 5)],
+             scale: [8 + Math.random()*6, height, 8 + Math.random()*6],
+             isNeon: Math.random() > 0.5
+           });
+       }
     }
 
-    // Cars on the road
-    for (let i = 0; i < 20; i++) {
-        let zPos = (Math.random() - 0.5) * 160;
-        let isXAxis = Math.random() > 0.5;
-        if (isXAxis) {
-            cars.push({ pos: [(Math.random()-0.5)*160, 0.5, 4], rotation: [0, 0, 0] });
-        } else {
-            cars.push({ pos: [-4, 0.5, (Math.random()-0.5)*160], rotation: [0, Math.PI/2, 0] });
-        }
-    }
-    return { buildings, cars };
+    return { buildings };
   }, [currentLevel]);
 
-  // ── LEVEL 3: THE SHATTERED RUINS (Elden Ring) ──
+  // ── LEVEL 3: THE SHATTERED BRIDGE ──
   const ruinsData = useMemo(() => {
     if (currentLevel !== 3) return { terrainGeom: null, pillars: [] };
     
-    const geom = new THREE.PlaneGeometry(250, 250, 96, 96);
+    // A long bridge
+    const geom = new THREE.PlaneGeometry(30, 500, 32, 256);
     geom.rotateX(-Math.PI / 2);
+    // Center it roughly around Z = -200
+    geom.translate(0, 0, -200);
+
     const pos = geom.attributes.position;
     const colors = [];
     const colorObj = new THREE.Color();
@@ -96,18 +97,14 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
         const x = pos.getX(i);
         const z = pos.getZ(i);
         
-        let dist = Math.sqrt(x*x + z*z);
-        let flatten = Math.max(0, Math.min(1, (dist - 10) / 60)); 
-        
-        // Jagged, dark noise
-        let noise = (noise2D(x/40, z/40) * 20) + (noise2D(x/10, z/10) * 5);
-        let y = noise * flatten;
+        let isTrack = Math.abs(x) < 6;
+        let noise = isTrack ? 0 : (noise2D(x/20, z/20) * 5);
+        let y = noise;
 
-        pos.setY(i, y - 1);
+        pos.setY(i, y);
         
-        // Dark, ashen colors
-        if (y > 8) colorObj.set('#1c1917'); // dark stone
-        else colorObj.set('#292524'); // ashen dirt
+        if (y > 2) colorObj.set('#1c1917'); 
+        else colorObj.set('#292524');
         
         colors.push(colorObj.r, colorObj.g, colorObj.b);
     }
@@ -115,16 +112,12 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
     geom.computeVertexNormals();
 
     const pillars: { pos: [number, number, number], rot: [number, number, number], broken: boolean }[] = [];
-    for(let i=0; i<50; i++) {
-        let x = (Math.random() - 0.5) * 200;
-        let z = (Math.random() - 0.5) * 200;
-        if (x*x + z*z < 225) continue; // Keep center clear
-        
-        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 10) / 60));
-        let hy = ((noise2D(x/40, z/40) * 20) + (noise2D(x/10, z/10) * 5)) * flatten;
+    for(let z = 50; z >= -450; z -= 15) {
+        if (Math.random() > 0.7) continue;
+        let x = Math.random() > 0.5 ? -12 : 12; // Side of the bridge
         
         pillars.push({
-            pos: [x, hy + (Math.random()*10), z],
+            pos: [x, Math.random()*5, z],
             rot: [Math.random()*0.4 - 0.2, Math.random()*Math.PI, Math.random()*0.4 - 0.2],
             broken: Math.random() > 0.5
         });
@@ -133,21 +126,28 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
     return { terrainGeom: geom, pillars };
   }, [currentLevel]);
 
+  // Shared Physics Floor to prevent falling
+  const PhysicsFloor = () => (
+    <RigidBody type="fixed" friction={0}>
+       <mesh position={[0, -1, -200]}>
+         <boxGeometry args={[40, 2, 600]} />
+         <meshBasicMaterial visible={false} />
+       </mesh>
+    </RigidBody>
+  );
 
   // ── RENDER ──
-  
   if (currentLevel === 1) {
     return (
       <group>
         <fog attach="fog" args={['#87CEEB', 20, 150]} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[50, 50, 50]} intensity={1.5} castShadow />
-        <RigidBody type="fixed" friction={1}>
-           {/* Invisible floor safety net */}
-           <mesh position={[0,-10,0]}><boxGeometry args={[400,1,400]}/><meshBasicMaterial visible={false}/></mesh>
-           
-           {/* High Performance Instanced Mesh */}
-           <Instances limit={20000} castShadow receiveShadow>
+        
+        <PhysicsFloor />
+
+        <RigidBody type="fixed" colliders={false}>
+           <Instances limit={15000} castShadow receiveShadow>
              <boxGeometry args={[2, 2, 2]} />
              <meshStandardMaterial roughness={1} />
              {voxelData.map((b, i) => (
@@ -166,27 +166,31 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
   if (currentLevel === 2) {
     return (
       <group>
-        <fog attach="fog" args={['#020617', 10, 100]} />
+        <fog attach="fog" args={['#020617', 10, 150]} />
         <ambientLight intensity={0.5} />
-        
-        <RigidBody type="fixed" friction={1}>
-           {/* Flat Asphalt Floor */}
-           <mesh position={[0, -0.5, 0]} receiveShadow>
-              <boxGeometry args={[200, 1, 200]} />
-              <meshStandardMaterial color="#171717" roughness={0.8} />
-           </mesh>
+        <directionalLight position={[-50, 50, -50]} intensity={0.5} castShadow />
 
-           {/* Road Markings */}
-           <mesh position={[0, 0.05, 0]} rotation={[-Math.PI/2, 0, 0]}>
-              <planeGeometry args={[200, 2]} />
-              <meshBasicMaterial color="#facc15" />
-           </mesh>
-           <mesh position={[0, 0.05, 0]} rotation={[-Math.PI/2, 0, Math.PI/2]}>
-              <planeGeometry args={[200, 2]} />
-              <meshBasicMaterial color="#facc15" />
-           </mesh>
+        <PhysicsFloor />
 
-           {/* Buildings */}
+        {/* Flat Asphalt Highway */}
+        <mesh position={[0, -0.1, -200]} receiveShadow>
+            <boxGeometry args={[24, 0.2, 600]} />
+            <meshStandardMaterial color="#171717" roughness={0.8} />
+        </mesh>
+
+        {/* Lane Dividers */}
+        <Instances limit={100}>
+           <planeGeometry args={[0.5, 4]} />
+           <meshBasicMaterial color="#facc15" />
+           {Array.from({ length: 60 }).map((_, i) => (
+              <group key={i}>
+                <Instance position={[-2, 0.05, 50 - i*10]} rotation={[-Math.PI/2, 0, 0]} />
+                <Instance position={[2, 0.05, 50 - i*10]} rotation={[-Math.PI/2, 0, 0]} />
+              </group>
+           ))}
+        </Instances>
+
+        <RigidBody type="fixed" colliders={false}>
            {urbanData.buildings.map((b, i) => (
              <mesh key={i} position={b.pos} castShadow receiveShadow>
                 <boxGeometry args={b.scale} />
@@ -199,16 +203,6 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
                 />
              </mesh>
            ))}
-
-           {/* Cars */}
-           {urbanData.cars.map((c, i) => (
-             <group key={`car-${i}`} position={c.pos} rotation={c.rotation}>
-                 <mesh position={[0, 0.5, 0]} castShadow>
-                    <boxGeometry args={[2, 1, 4]} />
-                    <meshStandardMaterial color={Math.random() > 0.5 ? '#b91c1c' : '#ffffff'} roughness={0.2} metalness={0.8} />
-                 </mesh>
-             </group>
-           ))}
         </RigidBody>
       </group>
     );
@@ -217,20 +211,18 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
   if (currentLevel === 3) {
     return (
       <group>
-        <fog attach="fog" args={['#1c1917', 5, 80]} />
-        {/* Ominous red/purple lighting */}
+        <fog attach="fog" args={['#1c1917', 5, 120]} />
         <directionalLight position={[50, 20, -50]} intensity={2} color="#9f1239" castShadow />
         <ambientLight intensity={0.2} color="#4c1d95" />
 
-        <RigidBody type="fixed" colliders="trimesh" friction={1.5}>
+        <PhysicsFloor />
+
+        <RigidBody type="fixed" colliders={false}>
           {ruinsData.terrainGeom && (
              <mesh receiveShadow geometry={ruinsData.terrainGeom}>
                 <meshStandardMaterial vertexColors roughness={1} />
              </mesh>
           )}
-        </RigidBody>
-
-        <RigidBody type="fixed">
            {ruinsData.pillars.map((p, i) => (
               <Float key={i} speed={0} floatIntensity={0} rotationIntensity={0}>
                  <mesh position={p.pos} rotation={p.rot} castShadow receiveShadow>
@@ -241,8 +233,7 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
            ))}
         </RigidBody>
 
-        {/* Floating Embers */}
-        <Sparkles count={200} scale={100} size={15} speed={0.4} opacity={0.6} color="#fb923c" />
+        <Sparkles count={400} scale={[40, 20, 400]} position={[0, 10, -200]} size={15} speed={0.4} opacity={0.6} color="#fb923c" />
       </group>
     );
   }

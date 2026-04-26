@@ -461,15 +461,15 @@ export default function WorldSpawner() {
           {/* Spawn the Portal or Boss if the level is clear */}
           {levelNodesComplete && !isGenerating && (
              currentLevel < 3 ? (
-               <DimensionalPortal position={[0, 2, 0]} onEnter={advanceLevel} />
+               <DimensionalPortal position={[0, 2, -340]} onEnter={advanceLevel} />
              ) : (
-               // Dummy trigger to open boss modal
-               <DimensionalPortal position={[0, 2, 0]} onEnter={() => setShowBoss(true)} />
+               // Final Boss Portal
+               <DimensionalPortal position={[0, 2, -340]} onEnter={() => setShowBoss(true)} />
              )
           )}
 
           {/* The Player Avatar */}
-          <AvatarPlayer gender={gender} />
+          <AvatarPlayer key={currentLevel} gender={gender} isPaused={!!selectedNode || showIntro || showBoss || gameOver} />
         </Physics>
       </Canvas>
     </div>

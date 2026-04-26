@@ -84,20 +84,20 @@ export function useGemyteEngine() {
 
       const config: GameConfig = data.gameConfig;
 
-      // Sanitize and scatter nodes across the open world
+      // Snap nodes to a linear Subway Surfers 3-lane track
       if (Array.isArray(config.contentNodes)) {
          config.contentNodes = config.contentNodes.map((n, i) => {
-            const rawPos = n.position || [Math.random() * 10 - 5, Math.random() * 3 + 1, Math.random() * -10];
-            // Multiply X and Z by 15, keep Y relatively stable to the ground
-            const scaledPos: [number, number, number] = [
-              rawPos[0] * 15,
-              Math.max(rawPos[1], 1), // Don't let it sink below ground
-              rawPos[2] * 15
-            ];
+            const laneIndex = [0, -1, 1, 0, 1, -1, 1, 0, -1][i % 9] || 0; 
+            const xPos = laneIndex * 4; 
+            
+            // 3 nodes per dimension. Reset Z position for each dimension.
+            const indexInDimension = i % 3;
+            const zPos = -100 - (indexInDimension * 80); 
+            
             return {
               ...n,
               id: n.id || i,
-              position: scaledPos
+              position: [xPos, 1, zPos]
             };
          });
       }
