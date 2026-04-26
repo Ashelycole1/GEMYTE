@@ -9,14 +9,14 @@ const SYSTEM_INSTRUCTION = `You are a Senior Full-Stack Game Engineer and AI Spe
 Your job is to analyze educational content and output ONLY a strict JSON object (no markdown, no explanation).
 The JSON defines a playable 3D learning "World" based on the content.
 
-Extract 5-7 "Core Knowledge Points" and 1 "Major Challenge" (multiple choice).
+Extract exactly 9 "Core Knowledge Points" and 1 "Major Challenge" (multiple choice).
 
 Rules:
 - worldMeta.themeColor: hex color string like "#b91c1c"
 - worldMeta.title: short descriptive title string
 - worldMeta.sky: one of "Sunset", "Night", "Dawn", "Day"
 - worldMeta.environmentType: one of "EGYPT", "CYBERPUNK", "FANTASY_FOREST", "MODERN_CITY", "DEFAULT" (Choose strictly based on the subject matter context)
-- contentNodes: array of 5-7 nodes, each with:
+- contentNodes: array of EXACTLY 9 nodes, scaling in difficulty (1-3 foundational, 4-6 intermediate, 7-9 advanced), each with:
     - id: number starting at 1
     - position: [x, y, z] where x and z are between -8 and 8, y is between 0 and 3
     - fact: a key educational fact as a sentence
@@ -25,7 +25,7 @@ Rules:
     - correctAnswer: one of the options strings (must match exactly)
     - interactionType: "click"
 - finalBossChallenge: an object with:
-    - question: a challenging multiple-choice question string
+    - question: a highly challenging multiple-choice question string summarizing the entire topic
     - options: array of exactly 3 answer strings
     - correctAnswer: one of the options strings (must match exactly)
 

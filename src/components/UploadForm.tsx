@@ -49,21 +49,12 @@ export default function UploadForm({ onClose, mobile = false, engine }: UploadFo
         setPromptText('');
         
         if (engine && data.textContent) {
-          setMessage('Analyzing content…');
-          engine.generateLevel(data.textContent).then((config: any) => {
-            if (config) {
-              localStorage.setItem('gemyte_game_config', JSON.stringify(config));
-              setMessage('Level ready! Launching 3D World…');
-              setTimeout(() => router.push('/game'), 800);
-            } else {
-              setMessage(engine.error || 'Engine failed to build level.');
-              setStatus('error');
-            }
-          }).catch((err: any) => {
-            console.error('Engine failure:', err);
-            setMessage(err.message || 'Analyzed. Could not build level.');
-            setStatus('error');
-          });
+          setMessage('Analyzing content… Launching 3D World!');
+          // Store the text to be generated in the background by WorldSpawner
+          localStorage.setItem('pending_gemyte_text', data.textContent);
+          localStorage.removeItem('gemyte_game_config'); // Clear old config
+          
+          setTimeout(() => router.push('/game'), 400);
         }
       } else {
         setStatus('error');
