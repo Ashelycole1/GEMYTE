@@ -84,6 +84,12 @@ export default function WorldSpawner() {
   const [bossResult, setBossResult] = useState<'idle' | 'won' | 'lost'>('idle');
   const [showIntro, setShowIntro] = useState(true);
   const [gender, setGender] = useState<'male' | 'female'>('male');
+  
+  // Game Mechanics State
+  const [coins, setCoins] = useState(0);
+  const [lives, setLives] = useState(4);
+  const [gameOver, setGameOver] = useState(false);
+  const [nodeResult, setNodeResult] = useState<'idle' | 'won' | 'lost'>('idle');
 
   // Load config
   useEffect(() => {
@@ -103,25 +109,64 @@ export default function WorldSpawner() {
   }
 
   const handleNodeTrigger = (node: ContentNode) => {
-    if (selectedNode?.id === node.id || showBoss) return; // Debounce
+    if (selectedNode?.id === node.id || showBoss || gameOver) return; // Debounce
+    if (completedNodes.includes(node.id)) return;
     setSelectedNode(node);
+    setNodeResult('idle');
+  };
+
+  const handleNodeAnswer = (answer: string) => {
+    if (!selectedNode) return;
     
-    if (!completedNodes.includes(node.id)) {
+    const isCorrect = selectedNode.correctAnswer 
+      ? answer === selectedNode.correctAnswer 
+      : true; 
+
+    if (isCorrect) {
+      setCoins(c => c + 1);
+      setNodeResult('won');
+      
       setCompletedNodes((prev) => {
-        const next = [...prev, node.id];
-        if (next.length === config.contentNodes.length) {
+        if (prev.includes(selectedNode.id)) return prev;
+        const next = [...prev, selectedNode.id];
+        if (config && next.length === config.contentNodes.length) {
           setTimeout(() => setShowBoss(true), 2000);
         }
         return next;
       });
+      
+      setTimeout(() => {
+        setSelectedNode(null);
+        setNodeResult('idle');
+      }, 1500);
+    } else {
+      setNodeResult('lost');
+      setLives(l => {
+        const nextLives = l - 1;
+        if (nextLives <= 0) {
+          setTimeout(() => setGameOver(true), 1500);
+        }
+        return nextLives;
+      });
+      
+      setTimeout(() => {
+        setNodeResult('idle');
+        setSelectedNode(null);
+      }, 1500);
     }
   };
 
   const handleBossAnswer = (answer: string) => {
     if (answer === config.finalBossChallenge.correctAnswer) {
       setBossResult('won');
+      setCoins(c => c + 5);
     } else {
       setBossResult('lost');
+      setLives(l => {
+        const next = l - 1;
+        if (next <= 0) setTimeout(() => setGameOver(true), 1500);
+        return next;
+      });
     }
   };
 
@@ -144,12 +189,27 @@ export default function WorldSpawner() {
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="w-full md:w-64 bg-slate-200/50 rounded-full h-4 border border-white/50 overflow-hidden backdrop-blur-md shadow-inner">
-          <div 
-            className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-1000 ease-out"
-            style={{ width: `${progress}%` }}
-          />
+        {/* Progress Bar & Stats */}
+        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+          {/* Progress Bar */}
+          <div className="w-full md:w-64 bg-slate-200/50 rounded-full h-4 border border-white/50 overflow-hidden backdrop-blur-md shadow-inner">
+            <div 
+              className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-1000 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          {/* Stats: Coins and Lives */}
+          <div className="flex items-center gap-4 bg-white/80 border border-white/50 backdrop-blur-sm px-4 py-1.5 rounded-lg shadow-sm pointer-events-auto">
+            <div className="flex items-center gap-1 font-bold text-yellow-600">
+              <span className="text-lg leading-none">🪙</span> {coins}
+            </div>
+            <div className="flex items-center gap-1 text-red-500 text-lg leading-none">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <span key={i} className={i < lives ? "opacity-100" : "opacity-20 grayscale"}>❤️</span>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -168,13 +228,13 @@ export default function WorldSpawner() {
       )}
 
       {/* ── Node Info Panel ── */}
-      {selectedNode && !showBoss && (
+      {selectedNode && !showBoss && !gameOver && (
         <div className="absolute top-36 md:top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto w-full max-w-lg px-4">
           <div className="bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl p-6 shadow-2xl animate-in slide-in-from-top-4">
             <div className="flex justify-between items-start mb-3">
               <span className="text-indigo-600 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                Knowledge Discovered
+                Knowledge Challenge
               </span>
               <button 
                 onClick={() => setSelectedNode(null)} 
@@ -183,10 +243,83 @@ export default function WorldSpawner() {
                 ✕
               </button>
             </div>
-            <p className="text-slate-800 text-lg font-medium leading-relaxed">
-              {selectedNode.fact}
-            </p>
-            <div className="mt-4 text-xs text-slate-500 font-medium">Use controls to continue exploring</div>
+            
+            {nodeResult === 'idle' ? (
+              <>
+                <p className="text-slate-800 text-lg font-medium leading-relaxed mb-4">
+                  {selectedNode.fact}
+                </p>
+                {selectedNode.question && selectedNode.options ? (
+                  <div className="mt-4">
+                    <p className="font-bold text-slate-900 mb-3">{selectedNode.question}</p>
+                    <div className="flex flex-col gap-2">
+                      {selectedNode.options.map((opt, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleNodeAnswer(opt)}
+                          className="w-full text-left px-4 py-3 bg-slate-50 hover:bg-indigo-50 text-slate-800 rounded-xl border border-slate-200 hover:border-indigo-400 transition-all font-medium text-sm shadow-sm"
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => handleNodeAnswer('legacy')} 
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl font-bold mt-2"
+                  >
+                    Collect Knowledge
+                  </button>
+                )}
+              </>
+            ) : nodeResult === 'won' ? (
+              <div className="text-center py-6">
+                <div className="text-green-500 text-5xl mb-2">✅</div>
+                <h3 className="text-2xl font-bold text-slate-900">Correct!</h3>
+                <p className="text-slate-600 font-medium">+1 Coin</p>
+              </div>
+            ) : (
+               <div className="text-center py-6">
+                <div className="text-red-500 text-5xl mb-2">❌</div>
+                <h3 className="text-2xl font-bold text-slate-900">Incorrect</h3>
+                <p className="text-slate-600 font-medium">-1 Life</p>
+              </div>
+            )}
+            
+            {nodeResult === 'idle' && (
+              <div className="mt-4 text-xs text-slate-500 font-medium text-center">Answer correctly to earn coins!</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Game Over Panel ── */}
+      {gameOver && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4 pointer-events-auto">
+          <div className="bg-white border-4 border-red-500 rounded-3xl p-8 max-w-sm w-full shadow-[0_0_50px_rgba(239,68,68,0.6)] text-center animate-in zoom-in-95">
+            <div className="text-6xl mb-4">💀</div>
+            <h2 className="text-3xl font-black text-slate-900 mb-2">Game Over</h2>
+            <p className="text-slate-600 mb-6 font-medium">You ran out of lives!</p>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => {
+                  setLives(4);
+                  setCoins(0);
+                  setCompletedNodes([]);
+                  setGameOver(false);
+                  setShowBoss(false);
+                  setSelectedNode(null);
+                  setBossResult('idle');
+                }} 
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg transition-transform active:scale-95"
+              >
+                Try Again
+              </button>
+              <Link href="/" className="flex-1 bg-slate-800 hover:bg-slate-900 text-white px-4 py-3 rounded-xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center">
+                Exit
+              </Link>
+            </div>
           </div>
         </div>
       )}

@@ -20,6 +20,9 @@ Rules:
     - id: number starting at 1
     - position: [x, y, z] where x and z are between -8 and 8, y is between 0 and 3
     - fact: a key educational fact as a sentence
+    - question: a multiple choice question based on the fact
+    - options: array of exactly 3 answer strings
+    - correctAnswer: one of the options strings (must match exactly)
     - interactionType: "click"
 - finalBossChallenge: an object with:
     - question: a challenging multiple-choice question string
