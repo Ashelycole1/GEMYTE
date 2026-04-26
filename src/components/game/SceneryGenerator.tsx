@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { RigidBody } from '@react-three/rapier';
-import { Sparkles, useTexture, Float } from '@react-three/drei';
+import { Sparkles, useTexture, Float, Instances, Instance } from '@react-three/drei';
 import * as THREE from 'three';
 import { createNoise2D } from 'simplex-noise';
 
@@ -17,18 +17,20 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
     if (currentLevel !== 1) return [];
     const blocks: { pos: [number, number, number], type: 'grass' | 'dirt' | 'wood' | 'leaves' }[] = [];
     
-    // Generate a chunky platform
-    for (let x = -20; x <= 20; x += 2) {
-      for (let z = -20; z <= 20; z += 2) {
-        let yBase = Math.floor(noise2D(x/15, z/15) * 2) * 2;
+    // Generate a massive chunky platform
+    for (let x = -100; x <= 100; x += 2) {
+      for (let z = -100; z <= 100; z += 2) {
+        let dist = Math.sqrt(x*x + z*z);
+        if (dist > 100) continue; // Make it a large circular island
+
+        let yBase = Math.floor(noise2D(x/25, z/25) * 3) * 2;
         // Surface
         blocks.push({ pos: [x, yBase, z], type: 'grass' });
-        // Underground
+        // Underground (only need 1 or 2 layers for visual depth)
         blocks.push({ pos: [x, yBase - 2, z], type: 'dirt' });
-        blocks.push({ pos: [x, yBase - 4, z], type: 'dirt' });
         
         // Random trees
-        if (Math.random() > 0.95 && yBase >= 0 && x*x + z*z > 25) {
+        if (Math.random() > 0.98 && yBase >= 0 && dist > 15) {
           blocks.push({ pos: [x, yBase + 2, z], type: 'wood' });
           blocks.push({ pos: [x, yBase + 4, z], type: 'wood' });
           blocks.push({ pos: [x, yBase + 6, z], type: 'wood' });
@@ -53,28 +55,28 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
     const cars: { pos: [number, number, number], rotation: [number, number, number] }[] = [];
     
     // City blocks
-    for (let i = 0; i < 40; i++) {
-       let x = (Math.random() - 0.5) * 80;
-       let z = (Math.random() - 0.5) * 80;
+    for (let i = 0; i < 60; i++) {
+       let x = (Math.random() - 0.5) * 160;
+       let z = (Math.random() - 0.5) * 160;
        // Leave a crossroad open in the center
        if (Math.abs(x) < 8 || Math.abs(z) < 8) continue; 
        
-       let height = 10 + Math.random() * 40;
+       let height = 10 + Math.random() * 50;
        buildings.push({
          pos: [x, height/2, z],
-         scale: [6 + Math.random()*4, height, 6 + Math.random()*4],
+         scale: [6 + Math.random()*6, height, 6 + Math.random()*6],
          isNeon: Math.random() > 0.7
        });
     }
 
     // Cars on the road
-    for (let i = 0; i < 15; i++) {
-        let zPos = (Math.random() - 0.5) * 80;
+    for (let i = 0; i < 20; i++) {
+        let zPos = (Math.random() - 0.5) * 160;
         let isXAxis = Math.random() > 0.5;
         if (isXAxis) {
-            cars.push({ pos: [(Math.random()-0.5)*80, 0.5, 4], rotation: [0, 0, 0] });
+            cars.push({ pos: [(Math.random()-0.5)*160, 0.5, 4], rotation: [0, 0, 0] });
         } else {
-            cars.push({ pos: [-4, 0.5, (Math.random()-0.5)*80], rotation: [0, Math.PI/2, 0] });
+            cars.push({ pos: [-4, 0.5, (Math.random()-0.5)*160], rotation: [0, Math.PI/2, 0] });
         }
     }
     return { buildings, cars };
@@ -84,7 +86,7 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
   const ruinsData = useMemo(() => {
     if (currentLevel !== 3) return { terrainGeom: null, pillars: [] };
     
-    const geom = new THREE.PlaneGeometry(150, 150, 64, 64);
+    const geom = new THREE.PlaneGeometry(250, 250, 96, 96);
     geom.rotateX(-Math.PI / 2);
     const pos = geom.attributes.position;
     const colors = [];
@@ -95,16 +97,16 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
         const z = pos.getZ(i);
         
         let dist = Math.sqrt(x*x + z*z);
-        let flatten = Math.max(0, Math.min(1, (dist - 10) / 40)); 
+        let flatten = Math.max(0, Math.min(1, (dist - 10) / 60)); 
         
         // Jagged, dark noise
-        let noise = (noise2D(x/30, z/30) * 15) + (noise2D(x/10, z/10) * 3);
+        let noise = (noise2D(x/40, z/40) * 20) + (noise2D(x/10, z/10) * 5);
         let y = noise * flatten;
 
         pos.setY(i, y - 1);
         
         // Dark, ashen colors
-        if (y > 5) colorObj.set('#1c1917'); // dark stone
+        if (y > 8) colorObj.set('#1c1917'); // dark stone
         else colorObj.set('#292524'); // ashen dirt
         
         colors.push(colorObj.r, colorObj.g, colorObj.b);
@@ -113,13 +115,13 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
     geom.computeVertexNormals();
 
     const pillars: { pos: [number, number, number], rot: [number, number, number], broken: boolean }[] = [];
-    for(let i=0; i<30; i++) {
-        let x = (Math.random() - 0.5) * 100;
-        let z = (Math.random() - 0.5) * 100;
-        if (x*x + z*z < 100) continue; // Keep center clear
+    for(let i=0; i<50; i++) {
+        let x = (Math.random() - 0.5) * 200;
+        let z = (Math.random() - 0.5) * 200;
+        if (x*x + z*z < 225) continue; // Keep center clear
         
-        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 10) / 40));
-        let hy = ((noise2D(x/30, z/30) * 15) + (noise2D(x/10, z/10) * 3)) * flatten;
+        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 10) / 60));
+        let hy = ((noise2D(x/40, z/40) * 20) + (noise2D(x/10, z/10) * 5)) * flatten;
         
         pillars.push({
             pos: [x, hy + (Math.random()*10), z],
@@ -137,23 +139,25 @@ export default function SceneryGenerator({ currentLevel, themeColor }: SceneryPr
   if (currentLevel === 1) {
     return (
       <group>
-        <fog attach="fog" args={['#87CEEB', 20, 80]} />
+        <fog attach="fog" args={['#87CEEB', 20, 150]} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[50, 50, 50]} intensity={1.5} castShadow />
         <RigidBody type="fixed" friction={1}>
            {/* Invisible floor safety net */}
-           <mesh position={[0,-10,0]}><boxGeometry args={[200,1,200]}/><meshBasicMaterial visible={false}/></mesh>
+           <mesh position={[0,-10,0]}><boxGeometry args={[400,1,400]}/><meshBasicMaterial visible={false}/></mesh>
            
-           {/* Instanced rendering for performance would be better, but standard maps are okay for < 2000 blocks */}
-           {voxelData.map((b, i) => (
-              <mesh key={i} position={b.pos} castShadow receiveShadow>
-                 <boxGeometry args={[2, 2, 2]} />
-                 <meshStandardMaterial 
-                   color={b.type === 'grass' ? '#4ade80' : b.type === 'dirt' ? '#78350f' : b.type === 'wood' ? '#8b5a2b' : '#22c55e'} 
-                   roughness={1}
-                 />
-              </mesh>
-           ))}
+           {/* High Performance Instanced Mesh */}
+           <Instances limit={20000} castShadow receiveShadow>
+             <boxGeometry args={[2, 2, 2]} />
+             <meshStandardMaterial roughness={1} />
+             {voxelData.map((b, i) => (
+                <Instance 
+                  key={i} 
+                  position={b.pos} 
+                  color={b.type === 'grass' ? '#4ade80' : b.type === 'dirt' ? '#78350f' : b.type === 'wood' ? '#8b5a2b' : '#22c55e'} 
+                />
+             ))}
+           </Instances>
         </RigidBody>
       </group>
     );
