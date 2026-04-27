@@ -15,9 +15,6 @@ export interface ContentNode {
   id: number;
   position: [number, number, number];
   fact: string;
-  question?: string;
-  options?: string[];
-  correctAnswer?: string;
   interactionType: 'click' | 'scan';
 }
 
