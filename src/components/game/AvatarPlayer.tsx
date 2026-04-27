@@ -4,6 +4,15 @@ import { RigidBody, RapierRigidBody, CapsuleCollider } from '@react-three/rapier
 import * as THREE from 'three';
 import { inputStore } from './useControls';
 import { sfx } from '../../utils/audio';
+import { useGameStore } from '../../store/useGameStore';
+
+// XP Tier thresholds → color progression
+function getAuraForXP(xp: number): { color: string; emissive: string; intensity: number } {
+  if (xp >= 4000) return { color: '#f97316', emissive: '#dc2626', intensity: 2.0 }; // Master – Orange/Red
+  if (xp >= 1500) return { color: '#f59e0b', emissive: '#d97706', intensity: 1.5 }; // Expert – Gold
+  if (xp >= 500)  return { color: '#8b5cf6', emissive: '#7c3aed', intensity: 1.2 }; // Apprentice – Violet
+  return { color: '#06b6d4', emissive: '#0891b2', intensity: 0.8 };               // Novice – Cyan
+}
 
 export default function AvatarPlayer({ gender = 'male', isPaused = false }: { gender?: 'male'|'female', isPaused?: boolean }) {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
@@ -12,6 +21,9 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
   const leftLegRef = useRef<THREE.Group>(null);
   const rightLegRef = useRef<THREE.Group>(null);
   const groupRef = useRef<THREE.Group>(null);
+  
+  const playerStats = useGameStore(state => state.playerStats);
+  const aura = useMemo(() => getAuraForXP(playerStats.knowledgeXP), [playerStats.knowledgeXP]);
 
   // Runner Mechanics State
   const laneRef = useRef(0); // -1 (left), 0 (center), 1 (right)
@@ -163,7 +175,12 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
         {/* Head (Stylized Cartoon) */}
         <mesh position={[0, 1.9, 0]}>
           <boxGeometry args={[0.6, 0.6, 0.6]} />
-          <meshStandardMaterial color={skinColor} roughness={0.4} />
+          <meshStandardMaterial 
+            color={skinColor} 
+            roughness={0.4} 
+            emissive={aura.emissive} 
+            emissiveIntensity={aura.intensity * 0.2} 
+          />
         </mesh>
         
         {/* Baseball Cap */}
@@ -247,6 +264,14 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
           </mesh>
         </group>
 
+        {/* Knowledge Aura Light */}
+        <pointLight 
+          position={[0, 1.5, 0]} 
+          color={aura.color} 
+          intensity={aura.intensity * 2} 
+          distance={8} 
+          decay={2}
+        />
       </group>
     </RigidBody>
   );
