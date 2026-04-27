@@ -9,10 +9,12 @@ interface GameState {
   conqueredStatus: Record<string, 'correct' | 'wrong'>;
   score: number;
   playerStats: PlayerStats;
+  victoryTrigger: number;
   
   setBlueprint: (bp: LevelBlueprint | null) => void;
   setActiveNode: (id: string | null) => void;
   setNodeStatus: (id: string, status: 'correct' | 'wrong') => void;
+  triggerVictory: () => void;
   resetGame: () => void;
   syncWithBackend: () => Promise<void>;
 }
@@ -36,9 +38,11 @@ export const useGameStore = create<GameState>()(
       conqueredStatus: {},
       score: 0,
       playerStats: DEFAULT_PLAYER_STATS,
+      victoryTrigger: 0,
       
       setBlueprint: (bp) => set({ blueprint: bp, conqueredStatus: {}, activeNodeId: null, activeNodeStartTime: null }),
       setActiveNode: (id) => set({ activeNodeId: id, activeNodeStartTime: id ? Date.now() : null }),
+      triggerVictory: () => set((state) => ({ victoryTrigger: state.victoryTrigger + 1 })),
       setNodeStatus: (id, status) => {
         set((state) => {
           const isNewCorrect = status === 'correct' && state.conqueredStatus[id] !== 'correct';
