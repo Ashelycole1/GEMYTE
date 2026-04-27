@@ -1,239 +1,251 @@
-import { useMemo, useState, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useMemo, useRef } from 'react';
 import { RigidBody } from '@react-three/rapier';
-import { Instances, Instance, Float } from '@react-three/drei';
+import { Sparkles, useTexture, Float, Instances, Instance } from '@react-three/drei';
 import * as THREE from 'three';
+import { createNoise2D } from 'simplex-noise';
 
 interface SceneryProps {
-  currentLevel: number;
+  currentLevel: number; // 1 = Voxel, 2 = Urban, 3 = Ruins
   themeColor: string;
-  onCollectCoin: () => void;
 }
 
-// ── Interactive Coin Component ──
-function Coin({ position, onCollect }: { position: [number, number, number], onCollect: () => void }) {
-  const [collected, setCollected] = useState(false);
-  const meshRef = useRef<THREE.Mesh>(null);
+export default function SceneryGenerator({ currentLevel, themeColor }: SceneryProps) {
+  const noise2D = createNoise2D();
 
-  useFrame((state, delta) => {
-    if (meshRef.current && !collected) {
-      meshRef.current.rotation.y += delta * 3;
-    }
-  });
+  // ── LEVEL 1: THE VOXEL REALM (Minecraft) ──
+  const voxelData = useMemo(() => {
+    if (currentLevel !== 1) return [];
+    const blocks: { pos: [number, number, number], type: 'grass' | 'dirt' | 'wood' | 'leaves' }[] = [];
+    
+    // Generate a massive chunky platform
+    for (let x = -100; x <= 100; x += 2) {
+      for (let z = -100; z <= 100; z += 2) {
+        let dist = Math.sqrt(x*x + z*z);
+        if (dist > 100) continue; // Make it a large circular island
 
-  if (collected) return null;
-
-  return (
-    <RigidBody position={position} type="fixed" sensor onIntersectionEnter={(p) => {
-        if (p.other.rigidBodyObject?.name === 'avatar' && !collected) {
-            setCollected(true);
-            onCollect();
-        }
-    }}>
-        <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]}>
-           <cylinderGeometry args={[0.5, 0.5, 0.1, 16]} />
-           <meshStandardMaterial color="#fbbf24" metalness={0.8} roughness={0.2} emissive="#d97706" emissiveIntensity={0.5} />
-        </mesh>
-    </RigidBody>
-  );
-}
-
-// ── Moving Train Component ──
-function MovingTrain({ initialZ, lane }: { initialZ: number, lane: number }) {
-    const rbRef = useRef<any>(null);
-    const xPos = lane * 4;
-
-    useFrame(() => {
-        if (rbRef.current) {
-            // Force constant velocity towards the player
-            rbRef.current.setLinvel({ x: 0, y: 0, z: 25 }, true);
-        }
-    });
-
-    return (
-        <RigidBody ref={rbRef} name="obstacle" type="kinematicVelocity" position={[xPos, 2, initialZ]} colliders="cuboid" friction={0}>
-            {/* Train Body */}
-            <mesh>
-                <boxGeometry args={[3.8, 4, 15]} />
-                <meshStandardMaterial color="#ef4444" roughness={0.5} metalness={0.6} />
-            </mesh>
-            {/* Train Windows */}
-            <mesh position={[0, 0.5, 7.51]}>
-                <boxGeometry args={[3, 1.5, 0.1]} />
-                <meshStandardMaterial color="#0f172a" />
-            </mesh>
-        </RigidBody>
-    );
-}
-
-export default function SceneryGenerator({ currentLevel, themeColor, onCollectCoin }: SceneryProps) {
-  
-  // ── Track Data Generation ──
-  const { stationaryTrains, movingTrains, coinPos, hurdles, barriers } = useMemo(() => {
-    const stationaryTrains: { z: number, lane: number, hasRamp: boolean, color: string }[] = [];
-    const movingTrains: { z: number, lane: number }[] = [];
-    const coinPos: { z: number, lane: number, y: number }[] = [];
-    const hurdles: { z: number, lane: number }[] = []; // Low barriers to jump over
-    const barriers: { z: number, lane: number }[] = []; // High barriers to slide under
-
-    const trainColors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
-
-    for (let z = 0; z >= -450; z -= 40) {
-        // Randomly pick a feature for this row
-        const featureType = Math.random();
-        const lane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
-
-        if (featureType > 0.8) {
-            // Stationary Train
-            const hasRamp = Math.random() > 0.5;
-            stationaryTrains.push({ 
-                z, lane, hasRamp, 
-                color: trainColors[Math.floor(Math.random() * trainColors.length)] 
-            });
-            // Coins on top if ramp
-            if (hasRamp) {
-                for (let c = 0; c < 3; c++) coinPos.push({ z: z + (c * 4), lane, y: 5 });
+        let yBase = Math.floor(noise2D(x/25, z/25) * 3) * 2;
+        // Surface
+        blocks.push({ pos: [x, yBase, z], type: 'grass' });
+        // Underground (only need 1 or 2 layers for visual depth)
+        blocks.push({ pos: [x, yBase - 2, z], type: 'dirt' });
+        
+        // Random trees
+        if (Math.random() > 0.98 && yBase >= 0 && dist > 15) {
+          blocks.push({ pos: [x, yBase + 2, z], type: 'wood' });
+          blocks.push({ pos: [x, yBase + 4, z], type: 'wood' });
+          blocks.push({ pos: [x, yBase + 6, z], type: 'wood' });
+          
+          // Canopy
+          for (let tx = -2; tx <= 2; tx+=2) {
+            for (let tz = -2; tz <= 2; tz+=2) {
+               blocks.push({ pos: [x+tx, yBase+6, z+tz], type: 'leaves' });
+               if (tx === 0 && tz === 0) blocks.push({ pos: [x, yBase+8, z], type: 'leaves' });
             }
-        } else if (featureType > 0.6) {
-            // Moving Train
-            movingTrains.push({ z: z - 100, lane });
-        } else if (featureType > 0.4) {
-            // High Barrier (Slide)
-            barriers.push({ z, lane });
-        } else if (featureType > 0.2) {
-            // Low Hurdle (Jump)
-            hurdles.push({ z, lane });
+          }
         }
+      }
+    }
+    return blocks;
+  }, [currentLevel]);
 
-        // Generate a line of 3-5 coins in a random empty lane
-        const coinLane = Math.floor(Math.random() * 3) - 1;
-        for (let c = 0; c < 5; c++) {
-            coinPos.push({ z: z - (c * 2) - 10, lane: coinLane, y: 1 });
-        }
+  // ── LEVEL 2: THE NEON GRID (Urban/GTA) ──
+  const urbanData = useMemo(() => {
+    if (currentLevel !== 2) return { buildings: [], cars: [] };
+    const buildings: { pos: [number, number, number], scale: [number, number, number], isNeon: boolean }[] = [];
+    const cars: { pos: [number, number, number], rotation: [number, number, number] }[] = [];
+    
+    // City blocks
+    for (let i = 0; i < 60; i++) {
+       let x = (Math.random() - 0.5) * 160;
+       let z = (Math.random() - 0.5) * 160;
+       // Leave a crossroad open in the center
+       if (Math.abs(x) < 8 || Math.abs(z) < 8) continue; 
+       
+       let height = 10 + Math.random() * 50;
+       buildings.push({
+         pos: [x, height/2, z],
+         scale: [6 + Math.random()*6, height, 6 + Math.random()*6],
+         isNeon: Math.random() > 0.7
+       });
     }
 
-    return { stationaryTrains, movingTrains, coinPos, hurdles, barriers };
+    // Cars on the road
+    for (let i = 0; i < 20; i++) {
+        let zPos = (Math.random() - 0.5) * 160;
+        let isXAxis = Math.random() > 0.5;
+        if (isXAxis) {
+            cars.push({ pos: [(Math.random()-0.5)*160, 0.5, 4], rotation: [0, 0, 0] });
+        } else {
+            cars.push({ pos: [-4, 0.5, (Math.random()-0.5)*160], rotation: [0, Math.PI/2, 0] });
+        }
+    }
+    return { buildings, cars };
+  }, [currentLevel]);
+
+  // ── LEVEL 3: THE SHATTERED RUINS (Elden Ring) ──
+  const ruinsData = useMemo(() => {
+    if (currentLevel !== 3) return { terrainGeom: null, pillars: [] };
+    
+    const geom = new THREE.PlaneGeometry(250, 250, 96, 96);
+    geom.rotateX(-Math.PI / 2);
+    const pos = geom.attributes.position;
+    const colors = [];
+    const colorObj = new THREE.Color();
+    
+    for(let i=0; i<pos.count; i++) {
+        const x = pos.getX(i);
+        const z = pos.getZ(i);
+        
+        let dist = Math.sqrt(x*x + z*z);
+        let flatten = Math.max(0, Math.min(1, (dist - 10) / 60)); 
+        
+        // Jagged, dark noise
+        let noise = (noise2D(x/40, z/40) * 20) + (noise2D(x/10, z/10) * 5);
+        let y = noise * flatten;
+
+        pos.setY(i, y - 1);
+        
+        // Dark, ashen colors
+        if (y > 8) colorObj.set('#1c1917'); // dark stone
+        else colorObj.set('#292524'); // ashen dirt
+        
+        colors.push(colorObj.r, colorObj.g, colorObj.b);
+    }
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geom.computeVertexNormals();
+
+    const pillars: { pos: [number, number, number], rot: [number, number, number], broken: boolean }[] = [];
+    for(let i=0; i<50; i++) {
+        let x = (Math.random() - 0.5) * 200;
+        let z = (Math.random() - 0.5) * 200;
+        if (x*x + z*z < 225) continue; // Keep center clear
+        
+        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 10) / 60));
+        let hy = ((noise2D(x/40, z/40) * 20) + (noise2D(x/10, z/10) * 5)) * flatten;
+        
+        pillars.push({
+            pos: [x, hy + (Math.random()*10), z],
+            rot: [Math.random()*0.4 - 0.2, Math.random()*Math.PI, Math.random()*0.4 - 0.2],
+            broken: Math.random() > 0.5
+        });
+    }
+
+    return { terrainGeom: geom, pillars };
   }, [currentLevel]);
 
 
-  // Shared Physics Floor to prevent falling
-  const PhysicsFloor = () => (
-    <RigidBody type="fixed" friction={0}>
-       <mesh position={[0, -1, -250]}>
-         <boxGeometry args={[40, 2, 800]} />
-         <meshBasicMaterial visible={false} />
-       </mesh>
-    </RigidBody>
-  );
+  // ── RENDER ──
+  
+  if (currentLevel === 1) {
+    return (
+      <group>
+        <fog attach="fog" args={['#87CEEB', 20, 150]} />
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[50, 50, 50]} intensity={1.5} castShadow />
+        <RigidBody type="fixed" friction={1}>
+           {/* Invisible floor safety net */}
+           <mesh position={[0,-10,0]}><boxGeometry args={[400,1,400]}/><meshBasicMaterial visible={false}/></mesh>
+           
+           {/* High Performance Instanced Mesh */}
+           <Instances limit={20000} castShadow receiveShadow>
+             <boxGeometry args={[2, 2, 2]} />
+             <meshStandardMaterial roughness={1} />
+             {voxelData.map((b, i) => (
+                <Instance 
+                  key={i} 
+                  position={b.pos} 
+                  color={b.type === 'grass' ? '#4ade80' : b.type === 'dirt' ? '#78350f' : b.type === 'wood' ? '#8b5a2b' : '#22c55e'} 
+                />
+             ))}
+           </Instances>
+        </RigidBody>
+      </group>
+    );
+  }
 
-  return (
-    <group>
-      <PhysicsFloor />
-      <ambientLight intensity={0.8} />
-      <directionalLight position={[50, 100, 50]} intensity={2} castShadow />
-      
-      {/* Dynamic fog based on level */}
-      <fog attach="fog" args={[currentLevel === 1 ? '#bae6fd' : currentLevel === 2 ? '#0f172a' : '#1c1917', 50, 200]} />
+  if (currentLevel === 2) {
+    return (
+      <group>
+        <fog attach="fog" args={['#020617', 10, 100]} />
+        <ambientLight intensity={0.5} />
+        
+        <RigidBody type="fixed" friction={1}>
+           {/* Flat Asphalt Floor */}
+           <mesh position={[0, -0.5, 0]} receiveShadow>
+              <boxGeometry args={[200, 1, 200]} />
+              <meshStandardMaterial color="#171717" roughness={0.8} />
+           </mesh>
 
-      {/* ── Environment Rendering ── */}
-      <RigidBody type="fixed" colliders={false}>
-          {/* Ground Base */}
-          <mesh position={[0, -0.1, -250]} receiveShadow>
-              <boxGeometry args={[40, 0.2, 800]} />
-              <meshStandardMaterial color={currentLevel === 1 ? '#84cc16' : currentLevel === 2 ? '#334155' : '#292524'} roughness={0.9} />
-          </mesh>
+           {/* Road Markings */}
+           <mesh position={[0, 0.05, 0]} rotation={[-Math.PI/2, 0, 0]}>
+              <planeGeometry args={[200, 2]} />
+              <meshBasicMaterial color="#facc15" />
+           </mesh>
+           <mesh position={[0, 0.05, 0]} rotation={[-Math.PI/2, 0, Math.PI/2]}>
+              <planeGeometry args={[200, 2]} />
+              <meshBasicMaterial color="#facc15" />
+           </mesh>
 
-          {/* Gravel Track Bed */}
-          <mesh position={[0, -0.05, -250]} receiveShadow>
-              <boxGeometry args={[14, 0.1, 800]} />
-              <meshStandardMaterial color="#57534e" roughness={1} />
-          </mesh>
-          
-          {/* Authentic Train Tracks (Ties and Rails) */}
-          <Instances limit={2000} castShadow receiveShadow>
-              <boxGeometry args={[12, 0.1, 0.4]} /> {/* Wooden Tie */}
-              <meshStandardMaterial color="#451a03" roughness={1} />
-              {Array.from({ length: 400 }).map((_, i) => (
-                  <Instance key={`tie-${i}`} position={[0, 0.05, 50 - (i * 2)]} />
-              ))}
-          </Instances>
+           {/* Buildings */}
+           {urbanData.buildings.map((b, i) => (
+             <mesh key={i} position={b.pos} castShadow receiveShadow>
+                <boxGeometry args={b.scale} />
+                <meshStandardMaterial 
+                  color={b.isNeon ? themeColor : '#0f172a'} 
+                  emissive={b.isNeon ? themeColor : '#000000'} 
+                  emissiveIntensity={b.isNeon ? 0.8 : 0}
+                  metalness={0.8} 
+                  roughness={0.2} 
+                />
+             </mesh>
+           ))}
 
-          <Instances limit={6}>
-              <boxGeometry args={[0.2, 0.2, 800]} /> {/* Metal Rail */}
-              <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-              <Instance position={[-5, 0.1, -250]} />
-              <Instance position={[-3, 0.1, -250]} />
-              <Instance position={[-1, 0.1, -250]} />
-              <Instance position={[1, 0.1, -250]} />
-              <Instance position={[3, 0.1, -250]} />
-              <Instance position={[5, 0.1, -250]} />
-          </Instances>
-      </RigidBody>
+           {/* Cars */}
+           {urbanData.cars.map((c, i) => (
+             <group key={`car-${i}`} position={c.pos} rotation={c.rotation}>
+                 <mesh position={[0, 0.5, 0]} castShadow>
+                    <boxGeometry args={[2, 1, 4]} />
+                    <meshStandardMaterial color={Math.random() > 0.5 ? '#b91c1c' : '#ffffff'} roughness={0.2} metalness={0.8} />
+                 </mesh>
+             </group>
+           ))}
+        </RigidBody>
+      </group>
+    );
+  }
 
-      {/* ── Side Scenery (Walls / Trees) ── */}
-      <RigidBody type="fixed" colliders={false}>
-          <Instances limit={100}>
-              <boxGeometry args={[2, 10, 20]} />
-              <meshStandardMaterial color={currentLevel === 1 ? '#fb923c' : currentLevel === 2 ? themeColor : '#44403c'} roughness={0.8} />
-              {Array.from({ length: 40 }).map((_, i) => (
-                  <group key={i}>
-                      <Instance position={[-15, 5, 50 - i*20]} />
-                      <Instance position={[15, 5, 50 - i*20]} />
-                  </group>
-              ))}
-          </Instances>
-      </RigidBody>
+  if (currentLevel === 3) {
+    return (
+      <group>
+        <fog attach="fog" args={['#1c1917', 5, 80]} />
+        {/* Ominous red/purple lighting */}
+        <directionalLight position={[50, 20, -50]} intensity={2} color="#9f1239" castShadow />
+        <ambientLight intensity={0.2} color="#4c1d95" />
 
-      {/* ── Obstacles ── */}
-      {/* Stationary Trains */}
-      {stationaryTrains.map((t, i) => (
-          <RigidBody key={`train-${i}`} name="obstacle" type="fixed" position={[t.lane * 4, 2, t.z]} colliders="cuboid" friction={0}>
-              <mesh castShadow receiveShadow>
-                  <boxGeometry args={[3.8, 4, 15]} />
-                  <meshStandardMaterial color={t.color} roughness={0.4} metalness={0.2} />
-              </mesh>
-              {/* Optional Ramp at the front of the train (positive Z side) */}
-              {t.hasRamp && (
-                  <mesh position={[0, -1, 12]} rotation={[-Math.PI / 6, 0, 0]}>
-                      <boxGeometry args={[3.8, 0.5, 10]} />
-                      <meshStandardMaterial color="#475569" />
-                  </mesh>
-              )}
-          </RigidBody>
-      ))}
+        <RigidBody type="fixed" colliders="trimesh" friction={1.5}>
+          {ruinsData.terrainGeom && (
+             <mesh receiveShadow geometry={ruinsData.terrainGeom}>
+                <meshStandardMaterial vertexColors roughness={1} />
+             </mesh>
+          )}
+        </RigidBody>
 
-      {/* Low Hurdles (Jump over) */}
-      {hurdles.map((h, i) => (
-          <RigidBody key={`hurdle-${i}`} name="obstacle" type="fixed" position={[h.lane * 4, 0.5, h.z]} colliders="cuboid">
-              <mesh castShadow>
-                  <boxGeometry args={[3.8, 1, 0.5]} />
-                  <meshStandardMaterial color="#dc2626" /> {/* Red and white striped normally, red for now */}
-              </mesh>
-          </RigidBody>
-      ))}
+        <RigidBody type="fixed">
+           {ruinsData.pillars.map((p, i) => (
+              <Float key={i} speed={0} floatIntensity={0} rotationIntensity={0}>
+                 <mesh position={p.pos} rotation={p.rot} castShadow receiveShadow>
+                    <cylinderGeometry args={[1.5, 2, p.broken ? 8 : 20, 8]} />
+                    <meshStandardMaterial color="#292524" roughness={1} />
+                 </mesh>
+              </Float>
+           ))}
+        </RigidBody>
 
-      {/* High Barriers (Slide under) */}
-      {barriers.map((b, i) => (
-          <RigidBody key={`barrier-${i}`} name="obstacle" type="fixed" position={[b.lane * 4, 2, b.z]}>
-              {/* Posts */}
-              <mesh position={[-1.8, -0.5, 0]}><boxGeometry args={[0.2, 3, 0.2]} /><meshStandardMaterial color="#cbd5e1" /></mesh>
-              <mesh position={[1.8, -0.5, 0]}><boxGeometry args={[0.2, 3, 0.2]} /><meshStandardMaterial color="#cbd5e1" /></mesh>
-              {/* Sign overhead */}
-              <mesh position={[0, 1.2, 0]}><boxGeometry args={[4, 1, 0.2]} /><meshStandardMaterial color="#facc15" /></mesh>
-              {/* Collider for the sign only */}
-          </RigidBody>
-      ))}
+        {/* Floating Embers */}
+        <Sparkles count={200} scale={100} size={15} speed={0.4} opacity={0.6} color="#fb923c" />
+      </group>
+    );
+  }
 
-      {/* ── Moving Trains ── */}
-      {movingTrains.map((mt, i) => (
-          <MovingTrain key={`mt-${i}`} initialZ={mt.z} lane={mt.lane} />
-      ))}
-
-      {/* ── Coins ── */}
-      {coinPos.map((c, i) => (
-          <Coin key={`coin-${i}`} position={[c.lane * 4, c.y, c.z]} onCollect={onCollectCoin} />
-      ))}
-
-    </group>
-  );
+  return null;
 }

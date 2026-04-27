@@ -3,13 +3,11 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Stars, Html, Sky, Environment, SoftShadows, Float, useKeyboardControls } from '@react-three/drei';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { Physics, RigidBody, CuboidCollider, CylinderCollider, BallCollider } from '@react-three/rapier';
 import { useRouter } from 'next/navigation';
 import { useGemyteEngine, ContentNode } from '@/hooks/useGemyteEngine';
-import { ArrowLeft, CheckCircle, Compass, Loader2, Zap, Flame } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Compass, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useGameStore } from '../store/useGameStore';
 
 // Custom Components
 import AvatarPlayer from './game/AvatarPlayer';
@@ -18,36 +16,6 @@ import { useIsMobile } from './game/useControls';
 import StartInstructions from './game/StartInstructions';
 import SceneryGenerator from './game/SceneryGenerator';
 import * as THREE from 'three';
-import { sfx } from '@/utils/audio';
-
-// ── Reactive Bloom that spikes on victory then settles ──
-function AdaptiveBloom() {
-  const victoryTrigger = useGameStore(state => state.victoryTrigger);
-  const playerStats = useGameStore(state => state.playerStats);
-  const [intensity, setIntensity] = useState(0.4);
-
-  useEffect(() => {
-    if (victoryTrigger === 0) return;
-    
-    // Spike bloom on capture
-    setIntensity(3.5);
-    const timer = setTimeout(() => { 
-      setIntensity(0.4 + playerStats.knowledgeXP / 4000); 
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [victoryTrigger]);
-
-  return (
-    <EffectComposer>
-      <Bloom
-        luminanceThreshold={0.2}
-        luminanceSmoothing={0.6}
-        intensity={intensity}
-        mipmapBlur
-      />
-    </EffectComposer>
-  );
-}
 
 // ── Dimensional Portal Component ──
 function DimensionalPortal({ onEnter, position }: { onEnter: () => void, position: [number, number, number] }) {
@@ -82,13 +50,11 @@ function KnowledgePlatform({
   color,
   onTrigger,
   isActiveNode,
-  isLocked,
 }: {
   node: ContentNode;
   color: string;
   onTrigger: (node: ContentNode) => void;
   isActiveNode: boolean;
-  isLocked: boolean;
 }) {
   return (
     <RigidBody position={node.position} type="fixed" friction={1}>
@@ -112,13 +78,7 @@ function KnowledgePlatform({
       {/* Floating Hologram */}
       <mesh position={[0, 1.5, 0]}>
         <cylinderGeometry args={[0.5, 0.5, 3]} />
-        <meshStandardMaterial 
-          color={isLocked ? "#334155" : (isActiveNode ? "#38bdf8" : "#94a3b8")} 
-          emissive={isLocked ? "#000000" : (isActiveNode ? "#38bdf8" : "#000000")} 
-          emissiveIntensity={isActiveNode ? 1 : 0} 
-          transparent 
-          opacity={isLocked ? 0.3 : 0.6} 
-        />
+        <meshStandardMaterial color={isActiveNode ? "#38bdf8" : "#94a3b8"} emissive={isActiveNode ? "#38bdf8" : "#000000"} emissiveIntensity={isActiveNode ? 1 : 0} transparent opacity={0.6} />
       </mesh>
 
       {/* The Guiding Light Beam (Only for the active node) */}
@@ -145,7 +105,6 @@ export default function WorldSpawner() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const engine = useGemyteEngine();
-  const { setNodeStatus, triggerVictory, playerStats, conqueredStatus, setActiveNode: setStoreActiveNode } = useGameStore();
   
   const [currentLevel, setCurrentLevel] = useState<number>(1);
   const [selectedNode, setSelectedNode] = useState<ContentNode | null>(null);
@@ -224,7 +183,6 @@ export default function WorldSpawner() {
     if (engine.completedNodes.includes(node.id.toString())) return;
     setSelectedNode(node);
     setNodeResult('idle');
-    setStoreActiveNode(node.id.toString());
   };
 
   const handleNodeAnswer = (answer: string) => {
@@ -235,13 +193,10 @@ export default function WorldSpawner() {
       setCoins(c => c + 1);
       setNodeResult('won');
       engine.markNodeComplete(selectedNode.id.toString());
-      setNodeStatus(selectedNode.id.toString(), 'correct');
       
       setTimeout(() => {
-        triggerVictory();
         setSelectedNode(null);
         setNodeResult('idle');
-        setStoreActiveNode(null);
       }, 1500);
     } else {
       setNodeResult('lost');
@@ -320,22 +275,8 @@ export default function WorldSpawner() {
              </div>
           )}
 
-          {/* Stats: XP, Coins and Lives */}
+          {/* Stats: Coins and Lives */}
           <div className="flex items-center gap-4 bg-white/10 border border-white/20 backdrop-blur-sm px-4 py-1.5 rounded-lg shadow-sm pointer-events-auto">
-            <div className="flex flex-col items-start pr-4 border-r border-white/10">
-              <span className="text-[10px] text-sky-400 font-black uppercase tracking-tighter">Knowledge XP</span>
-              <div className="flex items-center gap-1.5 text-white font-black text-sm">
-                <Zap size={14} className="text-amber-400 fill-amber-400" />
-                {playerStats.knowledgeXP}
-              </div>
-            </div>
-            <div className="flex flex-col items-start pr-4 border-r border-white/10">
-              <span className="text-[10px] text-orange-400 font-black uppercase tracking-tighter">Streak</span>
-              <div className="flex items-center gap-1.5 text-white font-black text-sm">
-                <Flame size={14} className="text-orange-500 fill-orange-500" />
-                {playerStats.streakMultiplier.toFixed(1)}x
-              </div>
-            </div>
             <div className="flex items-center gap-1 font-bold text-yellow-400">
               <span className="text-lg leading-none">🪙</span> {coins}
             </div>
@@ -500,14 +441,10 @@ export default function WorldSpawner() {
         {currentLevel === 2 && <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />}
         {currentLevel === 3 && <Environment preset="night" />}
         
-        <Physics gravity={[0, -30, 0]}>
+        <Physics gravity={[0, -20, 0]}>
           <SceneryGenerator 
             currentLevel={currentLevel} 
             themeColor={currentTheme} 
-            onCollectCoin={() => {
-               setCoins(c => c + 1);
-               sfx.playCoin();
-            }}
           />
 
           {/* Render Nodes for the current dimension */}
@@ -517,7 +454,6 @@ export default function WorldSpawner() {
               node={node}
               color={currentTheme}
               isActiveNode={activeNode?.id === node.id}
-              isLocked={activeNode?.id !== node.id && !engine.completedNodes.includes(node.id.toString())}
               onTrigger={handleNodeTrigger}
             />
           ))}
@@ -525,17 +461,15 @@ export default function WorldSpawner() {
           {/* Spawn the Portal or Boss if the level is clear */}
           {levelNodesComplete && !isGenerating && (
              currentLevel < 3 ? (
-               <DimensionalPortal position={[0, 2, -340]} onEnter={advanceLevel} />
+               <DimensionalPortal position={[0, 2, 0]} onEnter={advanceLevel} />
              ) : (
-               // Final Boss Portal
-               <DimensionalPortal position={[0, 2, -340]} onEnter={() => setShowBoss(true)} />
+               // Dummy trigger to open boss modal
+               <DimensionalPortal position={[0, 2, 0]} onEnter={() => setShowBoss(true)} />
              )
           )}
 
           {/* The Player Avatar */}
-          <AvatarPlayer key={currentLevel} gender={gender} isPaused={!!selectedNode || showIntro || showBoss || gameOver} />
-          
-          <AdaptiveBloom />
+          <AvatarPlayer gender={gender} />
         </Physics>
       </Canvas>
     </div>
