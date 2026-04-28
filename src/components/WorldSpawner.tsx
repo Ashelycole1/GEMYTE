@@ -187,6 +187,13 @@ export default function WorldSpawner() {
   // Derived state for the current dimension's nodes
   const cNodes = engine.gameConfig?.contentNodes || [];
   
+  // Calculate fog distance based on captured nodes
+  const fogFar = useMemo(() => {
+    const baseFog = 40;
+    const increment = 35;
+    return Math.min(baseFog + engine.completedNodes.length * increment, 350);
+  }, [engine.completedNodes.length]);
+
   // Calculate which node is the "active target"
   // The active target is the FIRST node in the entire array that is NOT in completedNodes.
   const activeNode = useMemo(() => {
@@ -495,6 +502,8 @@ export default function WorldSpawner() {
 
       {/* ── 3D Canvas ── */}
       <Canvas>
+        <fog attach="fog" args={['#0f172a', 15, fogFar]} />
+        
         {/* Dynamic sky based on level */}
         {currentLevel === 1 && <Sky sunPosition={[100, 20, 100]} />}
         {currentLevel === 2 && <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />}

@@ -31,7 +31,7 @@ class PlayerStats(BaseModel):
     unlockedSectors: List[str]
 
 @app.get("/stats/{player_id}", response_model=PlayerStats)
-def get_player_stats(player_id: str, db: Session = Depends(get_db)):
+def get_player_stats(player_id: str, db: Session = Depends(get_ db)):
     player = db.query(PlayerModel).filter(PlayerModel.player_id == player_id).first()
     if not player:
         # Return default if not found

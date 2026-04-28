@@ -37,6 +37,11 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
   const isSlidingRef = useRef(false);
   const slideTimerRef = useRef(0);
 
+  const victoryTrigger = useGameStore(state => state.victoryTrigger);
+  const prevVictoryTrigger = useRef(victoryTrigger);
+  const isVictoriousRef = useRef(false);
+  const victoryTimerRef = useRef(0);
+
   // Initialize Audio
   useEffect(() => {
     const handleInit = () => sfx.init();
@@ -50,6 +55,17 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
 
   const cameraPosition = useRef(new THREE.Vector3());
   const cameraTarget = useRef(new THREE.Vector3());
+
+  useEffect(() => {
+    if (victoryTrigger > prevVictoryTrigger.current) {
+       isVictoriousRef.current = true;
+       victoryTimerRef.current = 1.5; // celebrate for 1.5s
+       if (rigidBodyRef.current) {
+          rigidBodyRef.current.setLinvel({ x: 0, y: jumpForce, z: 0 }, true);
+       }
+    }
+    prevVictoryTrigger.current = victoryTrigger;
+  }, [victoryTrigger]);
 
   useFrame((state, delta) => {
     const rb = rigidBodyRef.current;
@@ -96,6 +112,13 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
        }
     }
 
+    if (isVictoriousRef.current) {
+       victoryTimerRef.current -= delta;
+       if (victoryTimerRef.current <= 0) {
+           isVictoriousRef.current = false;
+       }
+    }
+
     // Save inputs for next frame
     prevInputRef.current = { left, right, jump };
 
@@ -108,10 +131,14 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
 
     // Visual Updates
     if (groupRef.current) {
-      groupRef.current.rotation.y = Math.PI; // Face negative Z
-
       // Slide Animation
-      if (isSlidingRef.current) {
+      if (isVictoriousRef.current) {
+         groupRef.current.rotation.y += 10 * delta; // spin rapidly
+         groupRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), 10 * delta);
+         groupRef.current.position.lerp(new THREE.Vector3(0, 0, 0), 10 * delta);
+         groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, 0, 10 * delta);
+      } else if (isSlidingRef.current) {
+         groupRef.current.rotation.y = Math.PI;
          groupRef.current.scale.set(1, 0.4, 1);
          groupRef.current.position.y = -0.5;
          groupRef.current.rotation.x = Math.PI / 2;
@@ -119,17 +146,22 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
          groupRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), 10 * delta);
          groupRef.current.position.lerp(new THREE.Vector3(0, 0, 0), 10 * delta);
          groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, 0, 10 * delta);
+         // smoothly rotate back to facing forward
+         let targetRotY = Math.PI;
+         // Handle wrapping around Math.PI so it doesn't spin the wrong way
+         while (groupRef.current.rotation.y > Math.PI * 2) groupRef.current.rotation.y -= Math.PI * 2;
+         groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetRotY, 10 * delta);
       }
     }
 
     // Running Animation
     const time = state.clock.getElapsedTime();
-    const swingFactor = (isPaused || isSlidingRef.current) ? 0 : Math.sin(time * 25) * 1.2; 
+    const swingFactor = (isPaused || isSlidingRef.current || isVictoriousRef.current) ? 0 : Math.sin(time * 25) * 1.2; 
     
-    if (leftArmRef.current) leftArmRef.current.rotation.x = THREE.MathUtils.lerp(leftArmRef.current.rotation.x, swingFactor, 0.5);
-    if (rightArmRef.current) rightArmRef.current.rotation.x = THREE.MathUtils.lerp(rightArmRef.current.rotation.x, -swingFactor, 0.5);
-    if (leftLegRef.current) leftLegRef.current.rotation.x = THREE.MathUtils.lerp(leftLegRef.current.rotation.x, -swingFactor, 0.5);
-    if (rightLegRef.current) rightLegRef.current.rotation.x = THREE.MathUtils.lerp(rightLegRef.current.rotation.x, swingFactor, 0.5);
+    if (leftArmRef.current) leftArmRef.current.rotation.x = isVictoriousRef.current ? Math.PI - 0.5 : THREE.MathUtils.lerp(leftArmRef.current.rotation.x, swingFactor, 0.5);
+    if (rightArmRef.current) rightArmRef.current.rotation.x = isVictoriousRef.current ? Math.PI - 0.5 : THREE.MathUtils.lerp(rightArmRef.current.rotation.x, -swingFactor, 0.5);
+    if (leftLegRef.current) leftLegRef.current.rotation.x = isVictoriousRef.current ? 0 : THREE.MathUtils.lerp(leftLegRef.current.rotation.x, -swingFactor, 0.5);
+    if (rightLegRef.current) rightLegRef.current.rotation.x = isVictoriousRef.current ? 0 : THREE.MathUtils.lerp(rightLegRef.current.rotation.x, swingFactor, 0.5);
 
     // Camera locks behind the player on the Z axis
     const desiredPos = new THREE.Vector3(pos.x * 0.5, pos.y + 4, pos.z + 12);
@@ -272,6 +304,17 @@ export default function AvatarPlayer({ gender = 'male', isPaused = false }: { ge
           distance={8} 
           decay={2}
         />
+        {/* Knowledge Aura Mesh */}
+        <mesh position={[0, 1.2, 0]}>
+           <sphereGeometry args={[1.6, 32, 32]} />
+           <meshBasicMaterial 
+             color={aura.color} 
+             transparent 
+             opacity={0.15 * aura.intensity} 
+             depthWrite={false} 
+             blending={THREE.AdditiveBlending}
+           />
+        </mesh>
       </group>
     </RigidBody>
   );
