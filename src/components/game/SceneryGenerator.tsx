@@ -1,5 +1,5 @@
 import { useMemo, useRef } from 'react';
-import { RigidBody } from '@react-three/rapier';
+import { RigidBody, CylinderCollider, CuboidCollider } from '@react-three/rapier';
 import { Instance, Instances, Sparkles, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { createNoise2D } from 'simplex-noise';
@@ -138,7 +138,8 @@ export default function SceneryGenerator({ environmentType, themeColor }: Scener
           
           case 'palm':
              return (
-               <RigidBody key={item.id} type="fixed" position={item.pos as any}>
+               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false}>
+                  <CylinderCollider args={[item.height/2, 0.3]} position={[0, item.height/2, 0]} />
                   {/* Trunk */}
                   <mesh position={[0, item.height/2, 0]} castShadow>
                      <cylinderGeometry args={[0.3, 0.6, item.height, 8]} />
@@ -159,7 +160,8 @@ export default function SceneryGenerator({ environmentType, themeColor }: Scener
 
           case 'broadleaf':
              return (
-               <RigidBody key={item.id} type="fixed" position={item.pos as any}>
+               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false}>
+                  <CylinderCollider args={[item.height/2, 0.5]} position={[0, item.height/2, 0]} />
                   <mesh position={[0, item.height/2, 0]} castShadow>
                      <cylinderGeometry args={[0.5, 0.8, item.height, 8]} />
                      <meshStandardMaterial color="#5c4033" />
@@ -182,7 +184,8 @@ export default function SceneryGenerator({ environmentType, themeColor }: Scener
 
           case 'luxury-house':
              return (
-               <RigidBody key={item.id} type="fixed" position={item.pos as any}>
+               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false}>
+                  <CuboidCollider args={[7.5, 3, 5]} position={[0, 0, 0]} />
                   <mesh castShadow receiveShadow>
                      <boxGeometry args={[15, 6, 10]} />
                      <meshStandardMaterial color="#f8fafc" roughness={0.2} />
@@ -202,7 +205,9 @@ export default function SceneryGenerator({ environmentType, themeColor }: Scener
 
           case 'car':
              return (
-                <RigidBody key={item.id} type="fixed" position={item.pos as any} rotation={item.rotation as any}>
+                <RigidBody key={item.id} type="fixed" position={item.pos as any} rotation={item.rotation as any} colliders={false}>
+                   <CuboidCollider args={[1, 0.4, 2.25]} position={[0, 1, 0]} />
+                   <CuboidCollider args={[0.9, 0.4, 1]} position={[0, 1.7, -0.2]} />
                    {/* Chassis */}
                    <mesh position={[0, 1, 0]} castShadow>
                      <boxGeometry args={[2, 0.8, 4.5]} />

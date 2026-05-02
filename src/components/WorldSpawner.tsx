@@ -30,7 +30,11 @@ function KnowledgePlatform({
   isCompleted: boolean;
 }) {
   return (
-    <RigidBody position={node.position} type="fixed" friction={1}>
+    <RigidBody position={node.position} type="fixed" friction={1} colliders={false}>
+      {/* Explicit colliders for solid platform parts */}
+      <CuboidCollider args={[2, 0.5, 2]} position={[0, -0.5, 0]} />
+      <CuboidCollider args={[1.9, 0.5, 1.9]} position={[0, -1.5, 0]} />
+      
       {/* Platform block */}
       <mesh position={[0, -0.5, 0]}>
         <boxGeometry args={[4, 1, 4]} />
