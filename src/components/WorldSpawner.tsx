@@ -5,8 +5,8 @@ import { Canvas } from '@react-three/fiber';
 import { Stars, Html, Sky, Environment, SoftShadows } from '@react-three/drei';
 import { Physics, RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
 import { useRouter } from 'next/navigation';
-import { GameConfig, ContentNode } from '@/hooks/useGemyteEngine';
-import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { GameConfig, ContentNode, useGemyteEngine } from '@/hooks/useGemyteEngine';
+import { ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 // Custom Components
@@ -77,6 +77,7 @@ function KnowledgePlatform({
 export default function WorldSpawner() {
   const router = useRouter();
   const isMobile = useIsMobile();
+  const engine = useGemyteEngine();
   const [config, setConfig] = useState<GameConfig | null>(null);
   const [selectedNode, setSelectedNode] = useState<ContentNode | null>(null);
   const [completedNodes, setCompletedNodes] = useState<number[]>([]);
@@ -85,19 +86,53 @@ export default function WorldSpawner() {
   const [showIntro, setShowIntro] = useState(true);
   const [gender, setGender] = useState<'male' | 'female'>('male');
 
-  // Load config
+  // Load config or generate new one
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('gemyte_game_config');
-      if (raw) setConfig(JSON.parse(raw));
-    } catch {}
-  }, []);
+    const init = async () => {
+      const pendingText = localStorage.getItem('pending_gemyte_text');
+      if (pendingText) {
+        // Generate new world from text
+        const newConfig = await engine.generateLevel(pendingText);
+        if (newConfig) {
+          localStorage.setItem('gemyte_game_config', JSON.stringify(newConfig));
+          localStorage.removeItem('pending_gemyte_text');
+          setConfig(newConfig);
+        }
+      } else {
+        // Load existing config
+        try {
+          const raw = localStorage.getItem('gemyte_game_config');
+          if (raw) setConfig(JSON.parse(raw));
+        } catch {}
+      }
+    };
+    init();
+  }, []); // Run once on mount
+
+  if (engine.status === 'loading') {
+    return (
+      <div className="w-full min-h-screen flex flex-col items-center justify-center bg-[#010714] text-white">
+        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
+        <p className="text-lg font-medium">Generating your world...</p>
+        <p className="text-sm text-slate-400 mt-2">Summoning knowledge platforms and challenges.</p>
+      </div>
+    );
+  }
+
+  if (engine.status === 'error') {
+    return (
+      <div className="w-full min-h-screen flex flex-col items-center justify-center bg-[#010714] text-white">
+        <p className="mb-4 text-red-400">{engine.error || 'Failed to generate world.'}</p>
+        <Link href="/" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">Go Back</Link>
+      </div>
+    );
+  }
 
   if (!config) {
     return (
       <div className="w-full min-h-screen flex flex-col items-center justify-center bg-[#010714] text-white">
         <p className="mb-4">No world configured.</p>
-        <Link href="/" className="px-4 py-2 bg-indigo-600 rounded-lg">Go Back</Link>
+        <Link href="/" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">Go Back</Link>
       </div>
     );
   }

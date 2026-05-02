@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+  import { useEffect, useState } from 'react';
 import { Sparkles, Activity } from 'lucide-react';
 
 const bodyText = `> 1. Data Input: The engine parses your files (PDFs/Links) into raw conceptual nodes.
