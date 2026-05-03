@@ -1,5 +1,10 @@
+'use client'
+
 import { useEffect, useState } from 'react';
-import { User, Play, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SplineScene } from '@/components/ui/splite';
+import { Spotlight } from '@/components/ui/spotlight';
+import { User, Zap, BookOpen, Target } from 'lucide-react';
 
 interface StartInstructionsProps {
   title: string;
@@ -18,87 +23,174 @@ export default function StartInstructions({ title, onStart, nodeCount }: StartIn
   if (!mounted) return null;
 
   return (
-    <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center select-none font-sans text-white bg-slate-950/30 backdrop-blur-md transition-all duration-1000">
-      
-      {/* Subtle overlay gradient to keep text readable without blocking the game */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_rgba(2,6,23,0.8)_100%)] pointer-events-none" />
+    <AnimatePresence>
+      <motion.div
+        key="start-screen"
+        className="absolute inset-0 z-[100] scanline"
+        style={{ background: 'linear-gradient(135deg, #020617 0%, #0f0c29 50%, #020617 100%)' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+      >
+        {/* Aceternity Spotlight */}
+        <Spotlight
+          className="-top-40 left-0 md:left-60 md:-top-20"
+          fill="rgba(99,102,241,0.8)"
+        />
 
-      <div className="relative z-10 flex flex-col items-center max-w-4xl w-full px-6 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-        
-        {/* Header / Title */}
-        <div className="mb-8 flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(255,255,255,0.05)] backdrop-blur-xl rotate-3 hover:rotate-0 transition-transform">
-            <Sparkles className="w-8 h-8 text-indigo-400" />
-          </div>
-          <h1 className="text-4xl md:text-6xl font-black tracking-widest uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-200 to-slate-300 drop-shadow-2xl mb-4 text-center">
-            {title}
-          </h1>
-          <div className="flex items-center justify-center gap-3 bg-white/5 px-6 py-2 rounded-full border border-white/10 backdrop-blur-md">
-            <span className="text-white/50 text-xs tracking-[0.25em] uppercase font-bold">Difficulty</span>
-            <span className="text-indigo-400 font-black tracking-widest text-sm flex gap-1">
-              <span>/</span><span>/</span><span>/</span><span className="text-indigo-400/20">/</span><span className="text-indigo-400/20">/</span>
-            </span>
-          </div>
-        </div>
+        {/* Full-screen layout: Left lore | Right 3D Scene */}
+        <div className="relative w-full h-full flex flex-col lg:flex-row">
 
-        {/* Info Card */}
-        <div className="bg-[#0f172a]/60 border border-white/10 rounded-[2rem] p-6 md:p-10 backdrop-blur-2xl shadow-2xl w-full text-center mb-10 relative overflow-hidden group max-w-2xl">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-700" />
-          <p className="text-slate-300 text-sm md:text-base leading-relaxed mb-6 relative z-10 font-medium">
-            You have materialized inside a newly generated dimension. The laws of physics here are stable, but the internal knowledge nodes have scattered across the terrain.
-          </p>
-          <p className="text-amber-400/90 font-bold text-sm md:text-base relative z-10 bg-amber-400/10 inline-block px-6 py-3 rounded-xl border border-amber-400/20">
-            Move using WASD or Joystick. Recover the {nodeCount} remaining beacons to reconstruct the logic required to unlock the Final Sequence.
-          </p>
-        </div>
+          {/* ─── LEFT PANEL ─── */}
+          <div className="relative z-10 flex flex-col justify-center flex-1 px-8 md:px-16 py-12 lg:py-0 overflow-y-auto">
 
-        {/* Character Selection */}
-        <div className="flex flex-col items-center mb-12 w-full max-w-md">
-          <span className="text-slate-400 font-bold tracking-[0.2em] uppercase text-xs mb-5">Select Character</span>
-          <div className="flex gap-4 w-full">
-            <button 
-              onClick={() => setGender('male')}
-              className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl border-2 transition-all duration-300 ${
-                gender === 'male' 
-                  ? 'border-indigo-500 bg-indigo-500/20 text-white shadow-[0_0_30px_rgba(99,102,241,0.2)] scale-[1.02]' 
-                  : 'border-white/10 text-white/50 hover:bg-white/5 hover:text-white'
-              }`}
+            {/* Mission Badge */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+              className="flex items-center gap-2 mb-6"
             >
-              <User className={`w-5 h-5 ${gender === 'male' ? 'text-indigo-400' : ''}`} />
-              <span className="text-sm font-black tracking-widest uppercase">Guy</span>
-            </button>
-            <button 
-              onClick={() => setGender('female')}
-              className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl border-2 transition-all duration-300 ${
-                gender === 'female' 
-                  ? 'border-pink-500 bg-pink-500/20 text-white shadow-[0_0_30px_rgba(236,72,153,0.2)] scale-[1.02]' 
-                  : 'border-white/10 text-white/50 hover:bg-white/5 hover:text-white'
-              }`}
+              <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-500/40 bg-indigo-500/10 backdrop-blur-sm">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-indigo-300 text-[10px] font-bold tracking-[0.3em] uppercase">Mission Active</span>
+              </div>
+            </motion.div>
+
+            {/* Title */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.35, duration: 0.7 }}
             >
-              <User className={`w-5 h-5 ${gender === 'female' ? 'text-pink-400' : ''}`} />
-              <span className="text-sm font-black tracking-widest uppercase">Girl</span>
-            </button>
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tight uppercase leading-none mb-2">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-200 to-indigo-400">
+                  {title.split(' ').slice(0, -1).join(' ')}
+                </span>
+                <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-orange-500 drop-shadow-[0_0_30px_rgba(251,191,36,0.5)]">
+                  {title.split(' ').slice(-1)[0]}
+                </span>
+              </h1>
+
+              {/* Difficulty */}
+              <div className="flex items-center gap-3 mt-4 mb-8">
+                <span className="text-slate-500 text-xs tracking-[0.2em] uppercase font-semibold">Knowledge Tier</span>
+                <div className="flex gap-1">
+                  {[1,2,3,4,5].map((i) => (
+                    <div key={i} className={`w-5 h-1.5 rounded-full ${i <= 3 ? 'bg-indigo-400' : 'bg-slate-700'}`} />
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Mission Briefing Cards */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 0.6 }}
+              className="space-y-3 mb-8"
+            >
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/[0.04] border border-white/[0.07] backdrop-blur-sm">
+                <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
+                  <BookOpen className="w-4 h-4 text-indigo-400" />
+                </div>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  You have been deployed into a <span className="text-white font-semibold">live knowledge simulation</span>. The terrain is unstable — scattered learning nodes await recovery.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-400/[0.06] border border-amber-400/20 backdrop-blur-sm">
+                <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
+                  <Target className="w-4 h-4 text-amber-400" />
+                </div>
+                <p className="text-amber-200/80 text-sm leading-relaxed font-medium">
+                  <span className="text-amber-300 font-bold">Objective:</span> Navigate using WASD or Joystick. Recover{' '}
+                  <span className="text-amber-300 font-black text-base">{nodeCount}</span> knowledge beacons to unlock the Final Sequence.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-emerald-400/[0.05] border border-emerald-400/20 backdrop-blur-sm">
+                <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-emerald-400" />
+                </div>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  Each beacon activates a <span className="text-emerald-300 font-semibold">Concept Module</span>. Master all to earn XP and ascend the Scholar Ranks.
+                </p>
+              </div>
+            </motion.div>
+
+            {/* Character Selector */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.65, duration: 0.6 }}
+              className="mb-8"
+            >
+              <span className="text-slate-500 text-[10px] font-bold tracking-[0.3em] uppercase mb-3 block">Select Agent Profile</span>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setGender('male')}
+                  className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 rounded-xl border-2 transition-all duration-300 text-sm font-bold tracking-widest uppercase ${
+                    gender === 'male'
+                      ? 'border-indigo-500 bg-indigo-500/20 text-indigo-200 shadow-[0_0_20px_rgba(99,102,241,0.3)]'
+                      : 'border-white/10 text-white/40 hover:border-white/25 hover:text-white/70 bg-white/[0.02]'
+                  }`}
+                >
+                  <User className={`w-4 h-4 ${gender === 'male' ? 'text-indigo-400' : ''}`} />
+                  Agent M
+                </button>
+                <button
+                  onClick={() => setGender('female')}
+                  className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 rounded-xl border-2 transition-all duration-300 text-sm font-bold tracking-widest uppercase ${
+                    gender === 'female'
+                      ? 'border-pink-500 bg-pink-500/20 text-pink-200 shadow-[0_0_20px_rgba(236,72,153,0.3)]'
+                      : 'border-white/10 text-white/40 hover:border-white/25 hover:text-white/70 bg-white/[0.02]'
+                  }`}
+                >
+                  <User className={`w-4 h-4 ${gender === 'female' ? 'text-pink-400' : ''}`} />
+                  Agent F
+                </button>
+              </div>
+            </motion.div>
+
+            {/* GLOWING LAUNCH BUTTON */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.8, duration: 0.5, type: 'spring', stiffness: 200 }}
+            >
+              <button
+                onClick={() => onStart(gender)}
+                className="glow-ring relative w-full group flex items-center justify-center gap-4 py-5 rounded-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 text-white font-black tracking-[0.2em] uppercase text-base overflow-hidden border border-indigo-400/30 transition-all duration-300 hover:scale-[1.02] active:scale-95"
+              >
+                {/* Shimmer */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out" />
+                {/* Radial highlight */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.12)_0%,transparent_70%)]" />
+                
+                <Zap className="w-5 h-5 fill-current relative z-10" />
+                <span className="relative z-10">Deploy into Simulation</span>
+                <Zap className="w-5 h-5 fill-current relative z-10" />
+              </button>
+            </motion.div>
+
           </div>
-        </div>
 
-        {/* GLOWING START BUTTON */}
-        <div className="relative mt-2">
-          {/* Intense Outer Glow */}
-          <div className="absolute inset-0 bg-indigo-500 rounded-full blur-[40px] opacity-60 animate-pulse" />
-          
-          <button 
-            onClick={() => onStart(gender)} 
-            className="relative group flex items-center justify-center gap-4 px-12 md:px-16 py-5 md:py-6 bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 rounded-full text-white transition-all duration-300 hover:scale-[1.03] active:scale-95 shadow-[0_0_40px_rgba(99,102,241,0.8)] border border-white/20 overflow-hidden"
-          >
-            {/* Shimmer Effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-            
-            <Play className="w-6 h-6 md:w-7 md:h-7 fill-current text-white/90 group-hover:text-white relative z-10" />
-            <span className="font-black tracking-[0.25em] uppercase text-sm md:text-base drop-shadow-md relative z-10">Assemble & Start</span>
-          </button>
-        </div>
+          {/* ─── RIGHT PANEL: 3D Spline Scene ─── */}
+          <div className="hidden lg:flex flex-1 relative items-center justify-center overflow-hidden">
+            {/* Vignette edges */}
+            <div className="absolute inset-0 z-10 pointer-events-none"
+              style={{ boxShadow: 'inset 80px 0 120px #020617, inset 0 0 80px rgba(2,6,23,0.5)' }}
+            />
+            <SplineScene
+              scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
+              className="w-full h-full"
+            />
+          </div>
 
-      </div>
-    </div>
+        </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
