@@ -1,6 +1,5 @@
-import { useMemo, useRef } from 'react';
-import { RigidBody, CylinderCollider, CuboidCollider } from '@react-three/rapier';
-import { Instance, Instances, Sparkles, useTexture } from '@react-three/drei';
+import { useMemo } from 'react';
+import { RigidBody, CylinderCollider, CuboidCollider, HeightfieldCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { createNoise2D } from 'simplex-noise';
 
@@ -9,230 +8,188 @@ interface SceneryProps {
   themeColor: string;
 }
 
+// Grid resolution must match PlaneGeometry segments
+const GRID = 48; // 48 segments = 49 vertices per side
+const WORLD_SIZE = 800;
+
 export default function SceneryGenerator({ environmentType, themeColor }: SceneryProps) {
-  
-  // Terrain setup with Simplex Noise
-  const { terrainGeom, sceneryData } = useMemo(() => {
-    // Topography Generation - Reduced vertex count dramatically to prevent Trimesh freezing
-    const geom = new THREE.PlaneGeometry(800, 800, 48, 48); // much lower density for performance
-    geom.rotateX(-Math.PI / 2);
-    const pos = geom.attributes.position;
+
+  const { terrainGeom, heightData, sceneryData } = useMemo(() => {
     const noise2D = createNoise2D();
 
-    const colors = [];
+    // ── Helper: compute y height at any (x, z) using same noise ──
+    const getHeight = (x: number, z: number) => {
+      const dist = Math.sqrt(x * x + z * z);
+      const flatten = Math.max(0, Math.min(1, (dist - 20) / 100));
+      const noise = (noise2D(x / 250, z / 250) * 40) + (noise2D(x / 50, z / 50) * 5);
+      return noise * flatten - 1;
+    };
+
+    // ── Visual terrain geometry ──
+    const geom = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, GRID, GRID);
+    geom.rotateX(-Math.PI / 2);
+    const pos = geom.attributes.position;
+
+    const colors: number[] = [];
     const colorObj = new THREE.Color();
     const roadColor = new THREE.Color('#262626');
     const grassColor = new THREE.Color('#4ade80');
     const rockColor = new THREE.Color('#6b7280');
 
-    for(let i=0; i<pos.count; i++) {
-        const x = pos.getX(i);
-        const z = pos.getZ(i);
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      const y = getHeight(x, z);
 
-        let dist = Math.sqrt(x*x + z*z);
-        let flatten = Math.max(0, Math.min(1, (dist - 20) / 100)); 
-        
-        let noise = (noise2D(x/250, z/250) * 40) + (noise2D(x/50, z/50) * 5);
-        let y = noise * flatten;
+      const roadCenterZ = Math.sin(x / 100) * 100;
+      const distToRoad = Math.abs(z - roadCenterZ);
 
-        const roadCenterZ = Math.sin(x / 100) * 100;
-        const distToRoad = Math.abs(z - roadCenterZ);
-
-        if (distToRoad < 15) {
-            y = (noise2D(x/250, roadCenterZ/250) * 40 * flatten);
-            colorObj.copy(roadColor);
-        } else if (distToRoad < 20) {
-            colorObj.lerpColors(roadColor, grassColor, (distToRoad - 15) / 5);
+      if (distToRoad < 15) {
+        colorObj.copy(roadColor);
+      } else if (distToRoad < 20) {
+        colorObj.lerpColors(roadColor, grassColor, (distToRoad - 15) / 5);
+      } else {
+        if (y > 20) {
+          colorObj.lerpColors(grassColor, rockColor, Math.min(1, (y - 20) / 20));
         } else {
-            if (y > 20) {
-                 colorObj.lerpColors(grassColor, rockColor, Math.min(1, (y - 20) / 20));
-            } else {
-                 colorObj.copy(grassColor);
-            }
+          colorObj.copy(grassColor);
         }
+      }
 
-        pos.setY(i, y - 1);
-        colors.push(colorObj.r, colorObj.g, colorObj.b);
+      pos.setY(i, y);
+      colors.push(colorObj.r, colorObj.g, colorObj.b);
     }
 
     geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geom.computeVertexNormals();
 
+    // ── Heightfield data for Rapier physics (must match visual grid exactly) ──
+    // HeightfieldCollider expects (nrows+1)*(ncols+1) values, row-major
+    const verts = GRID + 1;
+    const hData = new Float32Array(verts * verts);
+    for (let r = 0; r < verts; r++) {
+      for (let c = 0; c < verts; c++) {
+        const x = (c / GRID - 0.5) * WORLD_SIZE;
+        const z = (r / GRID - 0.5) * WORLD_SIZE;
+        hData[r * verts + c] = getHeight(x, z);
+      }
+    }
+
+    // ── Scenery placement (off road + off center) ──
     const props: any[] = [];
     const getPos = () => {
-      let x = 0, z = 0, dist = 0;
-      while (true) {
+      let x = 0, z = 0;
+      for (let attempt = 0; attempt < 50; attempt++) {
         x = (Math.random() - 0.5) * 600;
         z = (Math.random() - 0.5) * 600;
-        const roadZ = Math.sin(x/100) * 100;
-        dist = Math.abs(z - roadZ);
-        if (Math.sqrt(x*x+z*z) > 30 && dist > 25) break;
+        const roadZ = Math.sin(x / 100) * 100;
+        if (Math.sqrt(x * x + z * z) > 30 && Math.abs(z - roadZ) > 25) break;
       }
-      return [x, z];
+      const y = getHeight(x, z);
+      return [x, y, z] as [number, number, number];
     };
 
-    // Reduced Palm Trees for performance
-    for (let i=0; i<25; i++) {
-        const [x,z] = getPos();
-        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 20) / 100));
-        let hy = (noise2D(x/250, z/250)*40 + noise2D(x/50,z/50)*5) * flatten - 1;
-        props.push({ id:`palm-${i}`, type: 'palm', pos: [x, hy, z], height: 15 + Math.random()*15 });
+    for (let i = 0; i < 25; i++) {
+      const pos = getPos();
+      props.push({ id: `palm-${i}`, type: 'palm', pos, height: 15 + Math.random() * 15 });
+    }
+    for (let i = 0; i < 45; i++) {
+      const pos = getPos();
+      props.push({ id: `tree-${i}`, type: 'broadleaf', pos, height: 8 + Math.random() * 10 });
+    }
+    for (let i = 0; i < 8; i++) {
+      const pos = getPos();
+      props.push({ id: `house-${i}`, type: 'luxury-house', pos: [pos[0], pos[1] + 2, pos[2]] as [number, number, number] });
     }
 
-    // Reduced Broadleaf Trees for performance
-    for (let i=0; i<45; i++) {
-        const [x,z] = getPos();
-        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 20) / 100));
-        let hy = (noise2D(x/250, z/250)*40 + noise2D(x/50,z/50)*5) * flatten - 1;
-        props.push({ id:`tree-${i}`, type: 'broadleaf', pos: [x, hy, z], height: 8 + Math.random()*10 });
-    }
-
-    // Houses
-    for (let i=0; i<8; i++) {
-        const [x,z] = getPos();
-        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 20) / 100));
-        let hy = (noise2D(x/250, z/250)*40 + noise2D(x/50,z/50)*5) * flatten - 1;
-        props.push({ id:`house-${i}`, type: 'luxury-house', pos: [x, hy+2, z] });
-    }
-
-    // Cars
-    for (let i=0; i<10; i++) {
-        const x = (Math.random() - 0.5) * 600;
-        const baseZ = Math.sin(x/100) * 100;
-        const laneOffset = Math.random() > 0.5 ? 5 : -5;
-        const z = baseZ + laneOffset;
-        let angle = Math.atan(-Math.cos(x/100)); 
-        if (laneOffset < 0) angle += Math.PI;
-
-        let flatten = Math.max(0, Math.min(1, (Math.sqrt(x*x+z*z) - 20) / 100));
-        let hy = (noise2D(x/250, baseZ/250)*40 * flatten) - 0.5;
-
-        if (Math.abs(x) > 30) {
-             props.push({ id:`car-${i}`, type: 'car', pos: [x, hy, z], rotation: [0, angle, 0] });
-        }
-    }
-
-    return { terrainGeom: geom, sceneryData: props };
+    return { terrainGeom: geom, heightData: hData, sceneryData: props };
   }, []);
-
-  let fogColor = '#cbd5e1';
 
   return (
     <>
-      <fog attach="fog" args={[fogColor, 40, 450]} />
+      <fog attach="fog" args={['#cbd5e1', 40, 450]} />
 
-      {/* Realistic Terrain Visuals (Removed Rapier trimesh to prevent WASM GPU crash) */}
+      {/* ── Visual terrain ── */}
       <mesh receiveShadow geometry={terrainGeom}>
-          <meshStandardMaterial vertexColors roughness={0.9} />
+        <meshStandardMaterial vertexColors roughness={0.9} />
       </mesh>
 
-      {/* Underlying dirt plane if camera falls below terrain */}
-      <mesh position={[0,-20,0]} rotation={[-Math.PI/2,0,0]}>
-         <planeGeometry args={[1000,1000]} />
-         <meshBasicMaterial color="#3f2c19" />
-      </mesh>
+      {/* ── Physics terrain: HeightfieldCollider matches visual mesh exactly ── */}
+      <RigidBody type="fixed" friction={1} restitution={0}>
+        <HeightfieldCollider
+          args={[GRID, GRID, heightData, { x: WORLD_SIZE, y: 1, z: WORLD_SIZE }]}
+        />
+      </RigidBody>
 
-      {/* Render Scenery Objects */}
+      {/* ── Scenery objects ── */}
       {sceneryData.map((item) => {
-        switch(item.type) {
-          
+        switch (item.type) {
+
           case 'palm':
-             return (
-               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false} restitution={0} friction={1}>
-                  {/* Solid trunk collider — radius matches visible trunk */}
-                  <CylinderCollider args={[item.height / 2, 0.55]} position={[0, item.height / 2, 0]} />
-                  {/* Trunk */}
-                  <mesh position={[0, item.height/2, 0]} castShadow>
-                     <cylinderGeometry args={[0.3, 0.6, item.height, 8]} />
-                     <meshStandardMaterial color="#8b5a2b" roughness={0.9} />
-                  </mesh>
-                  {/* Palm Leaves Base */}
-                  <mesh position={[0, item.height, 0]}>
-                     <sphereGeometry args={[0.8, 8, 8]} />
-                     <meshStandardMaterial color="#22c55e" roughness={1} />
-                  </mesh>
-                  {/* Canopy */}
-                  <mesh position={[0, item.height + 0.5, 0]} rotation={[Math.PI/2, 0, 0]} castShadow>
-                     <cylinderGeometry args={[3, 0.1, 0.2, 5]} />
-                     <meshStandardMaterial color="#16a34a" />
-                  </mesh>
-               </RigidBody>
-             );
+            return (
+              <RigidBody key={item.id} type="fixed" position={item.pos} colliders={false} restitution={0} friction={1}>
+                <CylinderCollider args={[item.height / 2, 0.55]} position={[0, item.height / 2, 0]} />
+                <mesh position={[0, item.height / 2, 0]} castShadow>
+                  <cylinderGeometry args={[0.3, 0.6, item.height, 8]} />
+                  <meshStandardMaterial color="#8b5a2b" roughness={0.9} />
+                </mesh>
+                <mesh position={[0, item.height, 0]}>
+                  <sphereGeometry args={[0.8, 8, 8]} />
+                  <meshStandardMaterial color="#22c55e" roughness={1} />
+                </mesh>
+                <mesh position={[0, item.height + 0.5, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+                  <cylinderGeometry args={[3, 0.1, 0.2, 5]} />
+                  <meshStandardMaterial color="#16a34a" />
+                </mesh>
+              </RigidBody>
+            );
 
           case 'broadleaf':
-             return (
-               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false} restitution={0} friction={1}>
-                  {/* Solid trunk collider */}
-                  <CylinderCollider args={[item.height / 2, 0.75]} position={[0, item.height / 2, 0]} />
-                  {/* Foliage sphere collider — stops player walking into the canopy */}
-                  <CylinderCollider args={[2.0, 2.5]} position={[0, item.height, 0]} />
-                  <mesh position={[0, item.height/2, 0]} castShadow>
-                     <cylinderGeometry args={[0.5, 0.8, item.height, 8]} />
-                     <meshStandardMaterial color="#5c4033" />
-                  </mesh>
-                  <mesh position={[0, item.height, 0]} castShadow>
-                     <dodecahedronGeometry args={[2.5, 1]} />
-                     <meshStandardMaterial color="#15803d" roughness={0.9} />
-                  </mesh>
-                  <mesh position={[1.5, item.height - 1, 1]} castShadow>
-                     <dodecahedronGeometry args={[1.8, 1]} />
-                     <meshStandardMaterial color="#16a34a" />
-                  </mesh>
-                  <mesh position={[-1.2, item.height - 0.5, -1.2]} castShadow>
-                     <dodecahedronGeometry args={[2, 1]} />
-                     <meshStandardMaterial color="#15803d" />
-                  </mesh>
-               </RigidBody>
-             );
+            return (
+              <RigidBody key={item.id} type="fixed" position={item.pos} colliders={false} restitution={0} friction={1}>
+                <CylinderCollider args={[item.height / 2, 0.75]} position={[0, item.height / 2, 0]} />
+                <CylinderCollider args={[2.0, 2.5]} position={[0, item.height, 0]} />
+                <mesh position={[0, item.height / 2, 0]} castShadow>
+                  <cylinderGeometry args={[0.5, 0.8, item.height, 8]} />
+                  <meshStandardMaterial color="#5c4033" />
+                </mesh>
+                <mesh position={[0, item.height, 0]} castShadow>
+                  <dodecahedronGeometry args={[2.5, 1]} />
+                  <meshStandardMaterial color="#15803d" roughness={0.9} />
+                </mesh>
+                <mesh position={[1.5, item.height - 1, 1]} castShadow>
+                  <dodecahedronGeometry args={[1.8, 1]} />
+                  <meshStandardMaterial color="#16a34a" />
+                </mesh>
+                <mesh position={[-1.2, item.height - 0.5, -1.2]} castShadow>
+                  <dodecahedronGeometry args={[2, 1]} />
+                  <meshStandardMaterial color="#15803d" />
+                </mesh>
+              </RigidBody>
+            );
 
           case 'luxury-house':
-             return (
-               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false} restitution={0} friction={1}>
-                  {/* Thick house wall colliders on all 4 sides + top — prevents player clipping through */}
-                  <CuboidCollider args={[7.5, 3.5, 0.4]} position={[0, 0, 5]} />   {/* front wall */}
-                  <CuboidCollider args={[7.5, 3.5, 0.4]} position={[0, 0, -5]} />  {/* back wall */}
-                  <CuboidCollider args={[0.4, 3.5, 5]} position={[7.5, 0, 0]} />   {/* right wall */}
-                  <CuboidCollider args={[0.4, 3.5, 5]} position={[-7.5, 0, 0]} />  {/* left wall */}
-                  <CuboidCollider args={[7.5, 0.5, 5]} position={[0, 3.5, 0]} />   {/* roof */}
-                  <mesh castShadow receiveShadow>
-                     <boxGeometry args={[15, 6, 10]} />
-                     <meshStandardMaterial color="#f8fafc" roughness={0.2} />
-                  </mesh>
-                  <mesh position={[0, 3.2, 0]} castShadow>
-                     <boxGeometry args={[16, 0.5, 11]} />
-                     <meshStandardMaterial color="#1e293b" />
-                  </mesh>
-                  <mesh position={[0, 0, 5.1]}>
-                     <planeGeometry args={[10, 4]} />
-                     <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.9} />
-                  </mesh>
-               </RigidBody>
-             );
-
-          case 'car':
-             return (
-                <RigidBody key={item.id} type="fixed" position={item.pos as any} rotation={item.rotation as any} colliders={false}>
-                   <CuboidCollider args={[1, 0.4, 2.25]} position={[0, 1, 0]} />
-                   <CuboidCollider args={[0.9, 0.4, 1]} position={[0, 1.7, -0.2]} />
-                   {/* Chassis */}
-                   <mesh position={[0, 1, 0]} castShadow>
-                     <boxGeometry args={[2, 0.8, 4.5]} />
-                     <meshStandardMaterial color="#0f172a" roughness={0.2} metalness={0.8} />
-                   </mesh>
-                   {/* Cabin */}
-                   <mesh position={[0, 1.7, -0.2]} castShadow>
-                     <boxGeometry args={[1.8, 0.8, 2]} />
-                     <meshStandardMaterial color="#000000" roughness={0.1} metalness={1} />
-                   </mesh>
-                   {/* Wheels */}
-                   {[[-1, 0.5, 1.5], [1, 0.5, 1.5], [-1, 0.5, -1.5], [1, 0.5, -1.5]].map((wheelPos, wi) => (
-                      <mesh key={wi} position={wheelPos as any} rotation={[0, 0, Math.PI/2]} castShadow>
-                         <cylinderGeometry args={[0.5, 0.5, 0.4, 16]} />
-                         <meshStandardMaterial color="#1f2937" roughness={0.9} />
-                      </mesh>
-                   ))}
-                </RigidBody>
-             );
+            return (
+              <RigidBody key={item.id} type="fixed" position={item.pos} colliders={false} restitution={0} friction={1}>
+                <CuboidCollider args={[7.5, 3.5, 0.4]} position={[0, 0, 5]} />
+                <CuboidCollider args={[7.5, 3.5, 0.4]} position={[0, 0, -5]} />
+                <CuboidCollider args={[0.4, 3.5, 5]} position={[7.5, 0, 0]} />
+                <CuboidCollider args={[0.4, 3.5, 5]} position={[-7.5, 0, 0]} />
+                <CuboidCollider args={[7.5, 0.5, 5]} position={[0, 3.5, 0]} />
+                <mesh castShadow receiveShadow>
+                  <boxGeometry args={[15, 6, 10]} />
+                  <meshStandardMaterial color="#f8fafc" roughness={0.2} />
+                </mesh>
+                <mesh position={[0, 3.2, 0]} castShadow>
+                  <boxGeometry args={[16, 0.5, 11]} />
+                  <meshStandardMaterial color="#1e293b" />
+                </mesh>
+                <mesh position={[0, 0, 5.1]}>
+                  <planeGeometry args={[10, 4]} />
+                  <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.9} />
+                </mesh>
+              </RigidBody>
+            );
         }
       })}
     </>

@@ -118,8 +118,8 @@ export default function AvatarPlayer({ gender = 'male' }: { gender?: 'male'|'fem
       
       <group ref={groupRef} position={[0, 0, 0]}>
         
-        {/* Head — rotated so canvas UV-face points toward +Z (camera) */}
-        <mesh position={[0, 1.8, 0]} rotation={[0, Math.PI, 0]}>
+        {/* Head — rotation aligns UV face center to local +Z (character forward) */}
+        <mesh position={[0, 1.8, 0]} rotation={[0, -Math.PI / 2, 0]}>
           <sphereGeometry args={[0.35, 32, 32]} />
           {faceTexture ? (
              <meshStandardMaterial map={faceTexture} roughness={0.6} />

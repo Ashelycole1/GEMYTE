@@ -309,18 +309,10 @@ export default function WorldSpawner() {
             environmentType={config.worldMeta?.environmentType || 'DEFAULT'} 
           />
 
-          {/* Invisible rigid body floor to catch players (graphics are handled in SceneryGenerator) */}
+          {/* Deep safety floor — only catches players who fall off world edges */}
           <RigidBody type="fixed" friction={1}>
-            {/* The actual physics floor the player walks on */}
-            <CuboidCollider position={[0, -1, 0]} args={[500, 1, 500]} />
-            
-            {/* Base underground dirt (for visual depth if they fall off the edge) */}
-            <mesh position={[0, -5, 0]}>
-              <boxGeometry args={[1000, 6, 1000]} />
-              <meshStandardMaterial color="#78350f" /> 
-            </mesh>
-
-            {/* Invisible boundaries to prevent falling off the world */}
+            <CuboidCollider position={[0, -100, 0]} args={[600, 1, 600]} />
+            {/* World boundary walls */}
             <CuboidCollider position={[0, 50, -500]} args={[500, 100, 1]} />
             <CuboidCollider position={[0, 50, 500]} args={[500, 100, 1]} />
             <CuboidCollider position={[-500, 50, 0]} args={[1, 100, 500]} />
