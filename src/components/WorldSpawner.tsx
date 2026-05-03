@@ -29,10 +29,18 @@ function KnowledgePlatform({
   onTrigger: (node: ContentNode) => void;
   isCompleted: boolean;
 }) {
+  // Clamp Y so platforms are always above terrain — never buried inside hills or trees
+  const safePosition: [number, number, number] = [
+    node.position[0],
+    Math.max(2, node.position[1]),
+    node.position[2],
+  ];
+
   return (
-    <RigidBody position={node.position} type="fixed" friction={1} colliders={false}>
-      {/* Explicit colliders for solid platform parts */}
+    <RigidBody position={safePosition} type="fixed" friction={1} colliders={false}>
+      {/* Platform top surface collider */}
       <CuboidCollider args={[2, 0.5, 2]} position={[0, -0.5, 0]} />
+      {/* Platform lower block collider */}
       <CuboidCollider args={[1.9, 0.5, 1.9]} position={[0, -1.5, 0]} />
       
       {/* Platform block */}
@@ -47,13 +55,12 @@ function KnowledgePlatform({
         <meshStandardMaterial color="#78350f" roughness={1} />
       </mesh>
 
-      {/* Sensor Zone (Triggers when player walks into it) */}
+      {/* Sensor Zone — sits clearly ABOVE the platform, well clear of solid colliders */}
       <CuboidCollider 
-        args={[2, 2, 2]} 
-        position={[0, 1.5, 0]} 
+        args={[2, 1.5, 2]} 
+        position={[0, 2.5, 0]} 
         sensor 
         onIntersectionEnter={(payload) => {
-          // If the player collider hits the sensor
           if (payload.other.rigidBodyObject?.name !== 'platform') {
             onTrigger(node);
           }

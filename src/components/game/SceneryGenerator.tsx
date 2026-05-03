@@ -138,8 +138,9 @@ export default function SceneryGenerator({ environmentType, themeColor }: Scener
           
           case 'palm':
              return (
-               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false}>
-                  <CylinderCollider args={[item.height/2, 0.3]} position={[0, item.height/2, 0]} />
+               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false} restitution={0} friction={1}>
+                  {/* Solid trunk collider — radius matches visible trunk */}
+                  <CylinderCollider args={[item.height / 2, 0.55]} position={[0, item.height / 2, 0]} />
                   {/* Trunk */}
                   <mesh position={[0, item.height/2, 0]} castShadow>
                      <cylinderGeometry args={[0.3, 0.6, item.height, 8]} />
@@ -150,7 +151,7 @@ export default function SceneryGenerator({ environmentType, themeColor }: Scener
                      <sphereGeometry args={[0.8, 8, 8]} />
                      <meshStandardMaterial color="#22c55e" roughness={1} />
                   </mesh>
-                  {/* Canopy (star shape approximation) */}
+                  {/* Canopy */}
                   <mesh position={[0, item.height + 0.5, 0]} rotation={[Math.PI/2, 0, 0]} castShadow>
                      <cylinderGeometry args={[3, 0.1, 0.2, 5]} />
                      <meshStandardMaterial color="#16a34a" />
@@ -160,13 +161,15 @@ export default function SceneryGenerator({ environmentType, themeColor }: Scener
 
           case 'broadleaf':
              return (
-               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false}>
-                  <CylinderCollider args={[item.height/2, 0.5]} position={[0, item.height/2, 0]} />
+               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false} restitution={0} friction={1}>
+                  {/* Solid trunk collider */}
+                  <CylinderCollider args={[item.height / 2, 0.75]} position={[0, item.height / 2, 0]} />
+                  {/* Foliage sphere collider — stops player walking into the canopy */}
+                  <CylinderCollider args={[2.0, 2.5]} position={[0, item.height, 0]} />
                   <mesh position={[0, item.height/2, 0]} castShadow>
                      <cylinderGeometry args={[0.5, 0.8, item.height, 8]} />
                      <meshStandardMaterial color="#5c4033" />
                   </mesh>
-                  {/* Multiple rounded foliage clumps */}
                   <mesh position={[0, item.height, 0]} castShadow>
                      <dodecahedronGeometry args={[2.5, 1]} />
                      <meshStandardMaterial color="#15803d" roughness={0.9} />
@@ -184,18 +187,21 @@ export default function SceneryGenerator({ environmentType, themeColor }: Scener
 
           case 'luxury-house':
              return (
-               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false}>
-                  <CuboidCollider args={[7.5, 3, 5]} position={[0, 0, 0]} />
+               <RigidBody key={item.id} type="fixed" position={item.pos as any} colliders={false} restitution={0} friction={1}>
+                  {/* Thick house wall colliders on all 4 sides + top — prevents player clipping through */}
+                  <CuboidCollider args={[7.5, 3.5, 0.4]} position={[0, 0, 5]} />   {/* front wall */}
+                  <CuboidCollider args={[7.5, 3.5, 0.4]} position={[0, 0, -5]} />  {/* back wall */}
+                  <CuboidCollider args={[0.4, 3.5, 5]} position={[7.5, 0, 0]} />   {/* right wall */}
+                  <CuboidCollider args={[0.4, 3.5, 5]} position={[-7.5, 0, 0]} />  {/* left wall */}
+                  <CuboidCollider args={[7.5, 0.5, 5]} position={[0, 3.5, 0]} />   {/* roof */}
                   <mesh castShadow receiveShadow>
                      <boxGeometry args={[15, 6, 10]} />
                      <meshStandardMaterial color="#f8fafc" roughness={0.2} />
                   </mesh>
-                  {/* Roof */}
                   <mesh position={[0, 3.2, 0]} castShadow>
                      <boxGeometry args={[16, 0.5, 11]} />
                      <meshStandardMaterial color="#1e293b" />
                   </mesh>
-                  {/* Giant glass window */}
                   <mesh position={[0, 0, 5.1]}>
                      <planeGeometry args={[10, 4]} />
                      <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.9} />

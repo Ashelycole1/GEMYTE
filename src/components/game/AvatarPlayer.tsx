@@ -112,13 +112,14 @@ export default function AvatarPlayer({ gender = 'male' }: { gender?: 'male'|'fem
   const hairColor = gender === 'male' ? '#3f2c19' : '#171717';
 
   return (
-    <RigidBody ref={rigidBodyRef} colliders={false} mass={1} type="dynamic" position={[0, 10, 0]} lockRotations enabledRotations={[false, false, false]} friction={0}>
-      <CapsuleCollider args={[0.6, 0.4]} position={[0, 1, 0]} />
+    <RigidBody ref={rigidBodyRef} colliders={false} mass={1} type="dynamic" position={[0, 10, 0]} lockRotations enabledRotations={[false, false, false]} friction={0.5} restitution={0}>
+      {/* Capsule: half-height=0.6, radius=0.4, centered at avatar's mid-body */}
+      <CapsuleCollider args={[0.55, 0.38]} position={[0, 1.0, 0]} />
       
       <group ref={groupRef} position={[0, 0, 0]}>
         
-        {/* Head (Sphere instead of Box) */}
-        <mesh position={[0, 1.8, 0]}>
+        {/* Head — rotated so canvas UV-face points toward +Z (camera) */}
+        <mesh position={[0, 1.8, 0]} rotation={[0, Math.PI, 0]}>
           <sphereGeometry args={[0.35, 32, 32]} />
           {faceTexture ? (
              <meshStandardMaterial map={faceTexture} roughness={0.6} />
