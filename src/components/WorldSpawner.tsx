@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Stars, Html, Sky, Environment, SoftShadows } from '@react-three/drei';
-import { Physics, RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
+import { Html, Sky, Environment } from '@react-three/drei';
+import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier';
 import { useRouter } from 'next/navigation';
 import { GameConfig, ContentNode, useGemyteEngine } from '@/hooks/useGemyteEngine';
 import { ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
