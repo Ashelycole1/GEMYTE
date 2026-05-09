@@ -135,3 +135,31 @@ html, body {
   .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 }
 
+/* --- Spotlight animation (Aceternity) --- */
+@keyframes spotlight {
+  0% { opacity: 0; transform: translate(-72%, -62%) scale(0.5); }
+  100% { opacity: 1; transform: translate(-50%, -40%) scale(1); }
+}
+.animate-spotlight {
+  animation: spotlight 2s ease 0.75s 1 forwards;
+}
+
+/* --- Glowing start button ring pulse --- */
+@keyframes glow-ring {
+  0%, 100% { box-shadow: 0 0 30px 8px rgba(99,102,241,0.6), 0 0 60px 20px rgba(99,102,241,0.25); }
+  50% { box-shadow: 0 0 50px 15px rgba(139,92,246,0.8), 0 0 90px 35px rgba(139,92,246,0.35); }
+}
+.glow-ring {
+  animation: glow-ring 2.5s ease-in-out infinite;
+}
+
+/* --- Scan line overlay for game feel --- */
+.scanline::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 50%, rgba(99,102,241,0.025) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 1;
+}

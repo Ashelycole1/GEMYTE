@@ -1,239 +1,197 @@
-import { useMemo, useState, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { RigidBody } from '@react-three/rapier';
-import { Instances, Instance, Float } from '@react-three/drei';
+import { useMemo } from 'react';
+import { RigidBody, CylinderCollider, CuboidCollider, HeightfieldCollider } from '@react-three/rapier';
 import * as THREE from 'three';
+import { createNoise2D } from 'simplex-noise';
 
 interface SceneryProps {
-  currentLevel: number;
+  environmentType: 'EGYPT' | 'CYBERPUNK' | 'FANTASY_FOREST' | 'MODERN_CITY' | 'DEFAULT' | string;
   themeColor: string;
-  onCollectCoin: () => void;
 }
 
-// ── Interactive Coin Component ──
-function Coin({ position, onCollect }: { position: [number, number, number], onCollect: () => void }) {
-  const [collected, setCollected] = useState(false);
-  const meshRef = useRef<THREE.Mesh>(null);
+// Grid resolution must match PlaneGeometry segments
+const GRID = 48; // 48 segments = 49 vertices per side
+const WORLD_SIZE = 800;
 
-  useFrame((state, delta) => {
-    if (meshRef.current && !collected) {
-      meshRef.current.rotation.y += delta * 3;
-    }
-  });
+export default function SceneryGenerator({ environmentType, themeColor }: SceneryProps) {
 
-  if (collected) return null;
+  const { terrainGeom, heightData, sceneryData } = useMemo(() => {
+    const noise2D = createNoise2D();
 
-  return (
-    <RigidBody position={position} type="fixed" sensor onIntersectionEnter={(p) => {
-        if (p.other.rigidBodyObject?.name === 'avatar' && !collected) {
-            setCollected(true);
-            onCollect();
+    // ── Helper: compute y height at any (x, z) using same noise ──
+    const getHeight = (x: number, z: number) => {
+      const dist = Math.sqrt(x * x + z * z);
+      const flatten = Math.max(0, Math.min(1, (dist - 20) / 100));
+      const noise = (noise2D(x / 250, z / 250) * 40) + (noise2D(x / 50, z / 50) * 5);
+      return noise * flatten - 1;
+    };
+
+    // ── Visual terrain geometry ──
+    const geom = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, GRID, GRID);
+    geom.rotateX(-Math.PI / 2);
+    const pos = geom.attributes.position;
+
+    const colors: number[] = [];
+    const colorObj = new THREE.Color();
+    const roadColor = new THREE.Color('#262626');
+    const grassColor = new THREE.Color('#4ade80');
+    const rockColor = new THREE.Color('#6b7280');
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      const y = getHeight(x, z);
+
+      const roadCenterZ = Math.sin(x / 100) * 100;
+      const distToRoad = Math.abs(z - roadCenterZ);
+
+      if (distToRoad < 15) {
+        colorObj.copy(roadColor);
+      } else if (distToRoad < 20) {
+        colorObj.lerpColors(roadColor, grassColor, (distToRoad - 15) / 5);
+      } else {
+        if (y > 20) {
+          colorObj.lerpColors(grassColor, rockColor, Math.min(1, (y - 20) / 20));
+        } else {
+          colorObj.copy(grassColor);
         }
-    }}>
-        <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]}>
-           <cylinderGeometry args={[0.5, 0.5, 0.1, 16]} />
-           <meshStandardMaterial color="#fbbf24" metalness={0.8} roughness={0.2} emissive="#d97706" emissiveIntensity={0.5} />
-        </mesh>
-    </RigidBody>
-  );
-}
+      }
 
-// ── Moving Train Component ──
-function MovingTrain({ initialZ, lane }: { initialZ: number, lane: number }) {
-    const rbRef = useRef<any>(null);
-    const xPos = lane * 4;
-
-    useFrame(() => {
-        if (rbRef.current) {
-            // Force constant velocity towards the player
-            rbRef.current.setLinvel({ x: 0, y: 0, z: 25 }, true);
-        }
-    });
-
-    return (
-        <RigidBody ref={rbRef} name="obstacle" type="kinematicVelocity" position={[xPos, 2, initialZ]} colliders="cuboid" friction={0}>
-            {/* Train Body */}
-            <mesh>
-                <boxGeometry args={[3.8, 4, 15]} />
-                <meshStandardMaterial color="#ef4444" roughness={0.5} metalness={0.6} />
-            </mesh>
-            {/* Train Windows */}
-            <mesh position={[0, 0.5, 7.51]}>
-                <boxGeometry args={[3, 1.5, 0.1]} />
-                <meshStandardMaterial color="#0f172a" />
-            </mesh>
-        </RigidBody>
-    );
-}
-
-export default function SceneryGenerator({ currentLevel, themeColor, onCollectCoin }: SceneryProps) {
-  
-  // ── Track Data Generation ──
-  const { stationaryTrains, movingTrains, coinPos, hurdles, barriers } = useMemo(() => {
-    const stationaryTrains: { z: number, lane: number, hasRamp: boolean, color: string }[] = [];
-    const movingTrains: { z: number, lane: number }[] = [];
-    const coinPos: { z: number, lane: number, y: number }[] = [];
-    const hurdles: { z: number, lane: number }[] = []; // Low barriers to jump over
-    const barriers: { z: number, lane: number }[] = []; // High barriers to slide under
-
-    const trainColors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
-
-    for (let z = 0; z >= -450; z -= 40) {
-        // Randomly pick a feature for this row
-        const featureType = Math.random();
-        const lane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
-
-        if (featureType > 0.8) {
-            // Stationary Train
-            const hasRamp = Math.random() > 0.5;
-            stationaryTrains.push({ 
-                z, lane, hasRamp, 
-                color: trainColors[Math.floor(Math.random() * trainColors.length)] 
-            });
-            // Coins on top if ramp
-            if (hasRamp) {
-                for (let c = 0; c < 3; c++) coinPos.push({ z: z + (c * 4), lane, y: 5 });
-            }
-        } else if (featureType > 0.6) {
-            // Moving Train
-            movingTrains.push({ z: z - 100, lane });
-        } else if (featureType > 0.4) {
-            // High Barrier (Slide)
-            barriers.push({ z, lane });
-        } else if (featureType > 0.2) {
-            // Low Hurdle (Jump)
-            hurdles.push({ z, lane });
-        }
-
-        // Generate a line of 3-5 coins in a random empty lane
-        const coinLane = Math.floor(Math.random() * 3) - 1;
-        for (let c = 0; c < 5; c++) {
-            coinPos.push({ z: z - (c * 2) - 10, lane: coinLane, y: 1 });
-        }
+      pos.setY(i, y);
+      colors.push(colorObj.r, colorObj.g, colorObj.b);
     }
 
-    return { stationaryTrains, movingTrains, coinPos, hurdles, barriers };
-  }, [currentLevel]);
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geom.computeVertexNormals();
 
+    // ── Heightfield data for Rapier physics (must match visual grid exactly) ──
+    // HeightfieldCollider expects (nrows+1)*(ncols+1) values, row-major
+    const verts = GRID + 1;
+    const hData = new Float32Array(verts * verts);
+    for (let r = 0; r < verts; r++) {
+      for (let c = 0; c < verts; c++) {
+        const x = (c / GRID - 0.5) * WORLD_SIZE;
+        const z = (r / GRID - 0.5) * WORLD_SIZE;
+        hData[r * verts + c] = getHeight(x, z);
+      }
+    }
 
-  // Shared Physics Floor to prevent falling
-  const PhysicsFloor = () => (
-    <RigidBody type="fixed" friction={0}>
-       <mesh position={[0, -1, -250]}>
-         <boxGeometry args={[40, 2, 800]} />
-         <meshBasicMaterial visible={false} />
-       </mesh>
-    </RigidBody>
-  );
+    // ── Scenery placement (off road + off center) ──
+    const props: any[] = [];
+    const getPos = () => {
+      let x = 0, z = 0;
+      for (let attempt = 0; attempt < 50; attempt++) {
+        x = (Math.random() - 0.5) * 600;
+        z = (Math.random() - 0.5) * 600;
+        const roadZ = Math.sin(x / 100) * 100;
+        if (Math.sqrt(x * x + z * z) > 30 && Math.abs(z - roadZ) > 25) break;
+      }
+      const y = getHeight(x, z);
+      return [x, y, z] as [number, number, number];
+    };
+
+    for (let i = 0; i < 25; i++) {
+      const pos = getPos();
+      props.push({ id: `palm-${i}`, type: 'palm', pos, height: 15 + Math.random() * 15 });
+    }
+    for (let i = 0; i < 45; i++) {
+      const pos = getPos();
+      props.push({ id: `tree-${i}`, type: 'broadleaf', pos, height: 8 + Math.random() * 10 });
+    }
+    for (let i = 0; i < 8; i++) {
+      const pos = getPos();
+      props.push({ id: `house-${i}`, type: 'luxury-house', pos: [pos[0], pos[1] + 2, pos[2]] as [number, number, number] });
+    }
+
+    return { terrainGeom: geom, heightData: hData, sceneryData: props };
+  }, []);
 
   return (
-    <group>
-      <PhysicsFloor />
-      <ambientLight intensity={0.8} />
-      <directionalLight position={[50, 100, 50]} intensity={2} castShadow />
-      
-      {/* Dynamic fog based on level */}
-      <fog attach="fog" args={[currentLevel === 1 ? '#bae6fd' : currentLevel === 2 ? '#0f172a' : '#1c1917', 50, 200]} />
+    <>
+      <fog attach="fog" args={['#cbd5e1', 40, 450]} />
 
-      {/* ── Environment Rendering ── */}
-      <RigidBody type="fixed" colliders={false}>
-          {/* Ground Base */}
-          <mesh position={[0, -0.1, -250]} receiveShadow>
-              <boxGeometry args={[40, 0.2, 800]} />
-              <meshStandardMaterial color={currentLevel === 1 ? '#84cc16' : currentLevel === 2 ? '#334155' : '#292524'} roughness={0.9} />
-          </mesh>
+      {/* ── Visual terrain ── */}
+      <mesh receiveShadow geometry={terrainGeom}>
+        <meshStandardMaterial vertexColors roughness={0.9} />
+      </mesh>
 
-          {/* Gravel Track Bed */}
-          <mesh position={[0, -0.05, -250]} receiveShadow>
-              <boxGeometry args={[14, 0.1, 800]} />
-              <meshStandardMaterial color="#57534e" roughness={1} />
-          </mesh>
-          
-          {/* Authentic Train Tracks (Ties and Rails) */}
-          <Instances limit={2000} castShadow receiveShadow>
-              <boxGeometry args={[12, 0.1, 0.4]} /> {/* Wooden Tie */}
-              <meshStandardMaterial color="#451a03" roughness={1} />
-              {Array.from({ length: 400 }).map((_, i) => (
-                  <Instance key={`tie-${i}`} position={[0, 0.05, 50 - (i * 2)]} />
-              ))}
-          </Instances>
-
-          <Instances limit={6}>
-              <boxGeometry args={[0.2, 0.2, 800]} /> {/* Metal Rail */}
-              <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-              <Instance position={[-5, 0.1, -250]} />
-              <Instance position={[-3, 0.1, -250]} />
-              <Instance position={[-1, 0.1, -250]} />
-              <Instance position={[1, 0.1, -250]} />
-              <Instance position={[3, 0.1, -250]} />
-              <Instance position={[5, 0.1, -250]} />
-          </Instances>
+      {/* ── Physics terrain: HeightfieldCollider matches visual mesh exactly ── */}
+      <RigidBody type="fixed" friction={1} restitution={0}>
+        <HeightfieldCollider
+          args={[GRID, GRID, heightData, { x: WORLD_SIZE, y: 1, z: WORLD_SIZE }]}
+        />
       </RigidBody>
 
-      {/* ── Side Scenery (Walls / Trees) ── */}
-      <RigidBody type="fixed" colliders={false}>
-          <Instances limit={100}>
-              <boxGeometry args={[2, 10, 20]} />
-              <meshStandardMaterial color={currentLevel === 1 ? '#fb923c' : currentLevel === 2 ? themeColor : '#44403c'} roughness={0.8} />
-              {Array.from({ length: 40 }).map((_, i) => (
-                  <group key={i}>
-                      <Instance position={[-15, 5, 50 - i*20]} />
-                      <Instance position={[15, 5, 50 - i*20]} />
-                  </group>
-              ))}
-          </Instances>
-      </RigidBody>
+      {/* ── Scenery objects ── */}
+      {sceneryData.map((item) => {
+        switch (item.type) {
 
-      {/* ── Obstacles ── */}
-      {/* Stationary Trains */}
-      {stationaryTrains.map((t, i) => (
-          <RigidBody key={`train-${i}`} name="obstacle" type="fixed" position={[t.lane * 4, 2, t.z]} colliders="cuboid" friction={0}>
-              <mesh castShadow receiveShadow>
-                  <boxGeometry args={[3.8, 4, 15]} />
-                  <meshStandardMaterial color={t.color} roughness={0.4} metalness={0.2} />
-              </mesh>
-              {/* Optional Ramp at the front of the train (positive Z side) */}
-              {t.hasRamp && (
-                  <mesh position={[0, -1, 12]} rotation={[-Math.PI / 6, 0, 0]}>
-                      <boxGeometry args={[3.8, 0.5, 10]} />
-                      <meshStandardMaterial color="#475569" />
-                  </mesh>
-              )}
-          </RigidBody>
-      ))}
+          case 'palm':
+            return (
+              <RigidBody key={item.id} type="fixed" position={item.pos} colliders={false} restitution={0} friction={1}>
+                <CylinderCollider args={[item.height / 2, 0.55]} position={[0, item.height / 2, 0]} />
+                <mesh position={[0, item.height / 2, 0]} castShadow>
+                  <cylinderGeometry args={[0.3, 0.6, item.height, 8]} />
+                  <meshStandardMaterial color="#8b5a2b" roughness={0.9} />
+                </mesh>
+                <mesh position={[0, item.height, 0]}>
+                  <sphereGeometry args={[0.8, 8, 8]} />
+                  <meshStandardMaterial color="#22c55e" roughness={1} />
+                </mesh>
+                <mesh position={[0, item.height + 0.5, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+                  <cylinderGeometry args={[3, 0.1, 0.2, 5]} />
+                  <meshStandardMaterial color="#16a34a" />
+                </mesh>
+              </RigidBody>
+            );
 
-      {/* Low Hurdles (Jump over) */}
-      {hurdles.map((h, i) => (
-          <RigidBody key={`hurdle-${i}`} name="obstacle" type="fixed" position={[h.lane * 4, 0.5, h.z]} colliders="cuboid">
-              <mesh castShadow>
-                  <boxGeometry args={[3.8, 1, 0.5]} />
-                  <meshStandardMaterial color="#dc2626" /> {/* Red and white striped normally, red for now */}
-              </mesh>
-          </RigidBody>
-      ))}
+          case 'broadleaf':
+            return (
+              <RigidBody key={item.id} type="fixed" position={item.pos} colliders={false} restitution={0} friction={1}>
+                <CylinderCollider args={[item.height / 2, 0.75]} position={[0, item.height / 2, 0]} />
+                <CylinderCollider args={[2.0, 2.5]} position={[0, item.height, 0]} />
+                <mesh position={[0, item.height / 2, 0]} castShadow>
+                  <cylinderGeometry args={[0.5, 0.8, item.height, 8]} />
+                  <meshStandardMaterial color="#5c4033" />
+                </mesh>
+                <mesh position={[0, item.height, 0]} castShadow>
+                  <dodecahedronGeometry args={[2.5, 1]} />
+                  <meshStandardMaterial color="#15803d" roughness={0.9} />
+                </mesh>
+                <mesh position={[1.5, item.height - 1, 1]} castShadow>
+                  <dodecahedronGeometry args={[1.8, 1]} />
+                  <meshStandardMaterial color="#16a34a" />
+                </mesh>
+                <mesh position={[-1.2, item.height - 0.5, -1.2]} castShadow>
+                  <dodecahedronGeometry args={[2, 1]} />
+                  <meshStandardMaterial color="#15803d" />
+                </mesh>
+              </RigidBody>
+            );
 
-      {/* High Barriers (Slide under) */}
-      {barriers.map((b, i) => (
-          <RigidBody key={`barrier-${i}`} name="obstacle" type="fixed" position={[b.lane * 4, 2, b.z]}>
-              {/* Posts */}
-              <mesh position={[-1.8, -0.5, 0]}><boxGeometry args={[0.2, 3, 0.2]} /><meshStandardMaterial color="#cbd5e1" /></mesh>
-              <mesh position={[1.8, -0.5, 0]}><boxGeometry args={[0.2, 3, 0.2]} /><meshStandardMaterial color="#cbd5e1" /></mesh>
-              {/* Sign overhead */}
-              <mesh position={[0, 1.2, 0]}><boxGeometry args={[4, 1, 0.2]} /><meshStandardMaterial color="#facc15" /></mesh>
-              {/* Collider for the sign only */}
-          </RigidBody>
-      ))}
-
-      {/* ── Moving Trains ── */}
-      {movingTrains.map((mt, i) => (
-          <MovingTrain key={`mt-${i}`} initialZ={mt.z} lane={mt.lane} />
-      ))}
-
-      {/* ── Coins ── */}
-      {coinPos.map((c, i) => (
-          <Coin key={`coin-${i}`} position={[c.lane * 4, c.y, c.z]} onCollect={onCollectCoin} />
-      ))}
-
-    </group>
+          case 'luxury-house':
+            return (
+              <RigidBody key={item.id} type="fixed" position={item.pos} colliders={false} restitution={0} friction={1}>
+                <CuboidCollider args={[7.5, 3.5, 0.4]} position={[0, 0, 5]} />
+                <CuboidCollider args={[7.5, 3.5, 0.4]} position={[0, 0, -5]} />
+                <CuboidCollider args={[0.4, 3.5, 5]} position={[7.5, 0, 0]} />
+                <CuboidCollider args={[0.4, 3.5, 5]} position={[-7.5, 0, 0]} />
+                <CuboidCollider args={[7.5, 0.5, 5]} position={[0, 3.5, 0]} />
+                <mesh castShadow receiveShadow>
+                  <boxGeometry args={[15, 6, 10]} />
+                  <meshStandardMaterial color="#f8fafc" roughness={0.2} />
+                </mesh>
+                <mesh position={[0, 3.2, 0]} castShadow>
+                  <boxGeometry args={[16, 0.5, 11]} />
+                  <meshStandardMaterial color="#1e293b" />
+                </mesh>
+                <mesh position={[0, 0, 5.1]}>
+                  <planeGeometry args={[10, 4]} />
+                  <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.9} />
+                </mesh>
+              </RigidBody>
+            );
+        }
+      })}
+    </>
   );
 }
