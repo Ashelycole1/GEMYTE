@@ -44,3 +44,8 @@ We employ a dark gradient theme utilizing:
 - **Emergent Emerald** (`#34d399`): Representing ultimate knowledge achievement states.
 
 *Powered by Vite, React Three Fiber, Framer Motion, and Tailwind CSS.*
+
+
+Developed by
+
+&copy; 2026 [RENOA](https://www.linkedin.com/company/renoa-collective/). All rights reserved.
